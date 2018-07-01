@@ -1,0 +1,1 @@
+		<a href="#" id="${page.getPage()}" class="navigate" onclick="setCurrentVar(<#list arguments as arg>'${arg}'<#sep>,</#list>)">${page.getText()}</a> 

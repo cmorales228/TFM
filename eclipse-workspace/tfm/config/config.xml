@@ -1,0 +1,8 @@
+<gac>
+	<inputFolder>C:\Users\cmora\eclipse-workspace\EjemploMemoria</inputFolder>
+	<!-- <outputFolder>C:\Users\cmora\ejemploMemoria</outputFolder> -->
+	<outputFolder>C:\Users\cmora\eclipse-workspace\tfm\output</outputFolder>
+	<appsMulti>
+		<appMulti>Android</appMulti>
+	</appsMulti>
+</gac>
