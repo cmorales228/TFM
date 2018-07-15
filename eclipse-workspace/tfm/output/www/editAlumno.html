@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html" charset="utf-8">
+	<script type="text/javascript">
+
+	var indexedDB = window.indexedDB || window.mozIndexedDB || window.webkitIndexedDB || window.msIndexedDB;
+
+    function getData() {
+                       
+    	var req = indexedDB.open("EjemploMemoria", 1);
+
+		req.onupgradeneeded = function(evt){
+			console.log("ONUPGRADEDNEEDED: EjemploMemoria.readAlumno: YOU MUST NOT SEE THIS MESSAGE");
+		};
+			
+		req.onerror = function(evt){
+			console.error("openDB:", evt.target.errorCode);
+		};
+
+		req.onsuccess=function(evt){
+			
+			//Get argument from URL
+            var argURL = location.search.substr(1);
+            var instanceName = argURL.split("=")[1];
+            
+            if(!("currentInstanceAlumno" in sessionStorage)){
+            	sessionStorage.setItem("currentInstanceAlumno", instanceName);
+            }
+            else{
+            	instanceName = sessionStorage.getItem("currentInstanceAlumno");
+            }
+            //Get data from DB	
+            var active = req.result;
+            var data = active.transaction(['Alumno'], 'readonly');
+            var objectStore = data.objectStore("Alumno");
+            
+            var requestObject = objectStore.get(instanceName);
+            
+            requestObject.onerror = function(event) {
+            	console.log("error while getting " + instanceName + " from Alumno");
+  				// Handle errors!
+			};
+			requestObject.onsuccess = function(event) {
+  				// Do something with the request.result!
+			
+				var resultAlumno = requestObject.result;
+				
+				document.querySelector("#editAlumno").innerHTML = "Edit " + resultAlumno.name;
+			
+
+				if(!("selectedAlumnoName" in sessionStorage)){
+					sessionStorage.setItem("selectedAlumnoName", requestObject.result.name);
+				}
+				if (!("AlumnoAsignaturas" in sessionStorage) && requestObject.result.asignaturas != null){
+					sessionStorage.setItem("AlumnoAsignaturas", requestObject.result.asignaturas);
+				}
+				if(!("selectedAlumnoTutor" in sessionStorage)){
+					sessionStorage.setItem("selectedAlumnoTutor", requestObject.result.tutor);
+				}
+			
+  				// Alumno has a property of type Asignatura, so request for it
+  				var linkDataAsignatura = active.transaction(['Asignatura'], 'readonly');
+            	var linkAsignaturaStore = linkDataAsignatura.objectStore("Asignatura");
+            	var requestLinkAsignatura = linkAsignaturaStore.getAll();
+           		requestLinkAsignatura.onerror = function(event) {
+            		console.log("error while getting " + requestValue + " from Asignatura");
+  					// Handle errors!
+				};
+				requestLinkAsignatura.onsuccess = function(event) {				
+  				// Alumno has a property of type Profesor, so request for it
+  				var linkDataProfesor = active.transaction(['Profesor'], 'readonly');
+            	var linkProfesorStore = linkDataProfesor.objectStore("Profesor");
+            	var requestLinkProfesor = linkProfesorStore.getAll();
+           		requestLinkProfesor.onerror = function(event) {
+            		console.log("error while getting " + requestValue + " from Profesor");
+  					// Handle errors!
+				};
+				requestLinkProfesor.onsuccess = function(event) {				
+					
+					document.querySelector("#inputname").value = sessionStorage.getItem("selectedAlumnoName");
+					selector ="";
+					var alreadySelected = "";
+					requestLinkAsignatura.result.forEach(function(resultAsignatura){
+						sessionStorage.setItem(resultAsignatura.instanceName, resultAsignatura.name);
+						if ("selectedAlumnoAsignaturas" in sessionStorage){
+							selector += "<option value=" + resultAsignatura.instanceName;
+							if(resultAsignatura.instanceName == sessionStorage.getItem("selectedAlumnoAsignaturas")){selector +=" selected";}
+							selector += ">" + resultAsignatura.name + "</option>";
+						} else if (!("AlumnoAsignaturas" in sessionStorage) || sessionStorage.getItem("AlumnoAsignaturas").split(", ").indexOf(resultAsignatura.instanceName)<0){
+							selector += "<option value=" + resultAsignatura.instanceName;
+							if(resultAlumno.asignaturas == resultAsignatura.instanceName){selector +=" selected";}
+							selector += ">" + resultAsignatura.name + "</option>";
+						}
+						else{
+							alreadySelected += "<fieldset id=asignaturas><label>" + resultAsignatura.name + "</label><button onclick='removeAlumnoProperty(\""+resultAsignatura.instanceName+"\")'>x</button></fieldset>";	
+						}
+					});
+										document.querySelector("#inputasignaturas").innerHTML = selector;
+					if(alreadySelected.length>0){
+						document.querySelector("#addasignaturas").innerHTML = alreadySelected;
+					}
+					selector ="";
+					selector += "<option value></option>";					
+					var alreadySelected = "";
+					requestLinkProfesor.result.forEach(function(resultProfesor){
+						sessionStorage.setItem(resultProfesor.instanceName, resultProfesor.name);
+						if ("selectedAlumnoTutor" in sessionStorage){
+							selector += "<option value=" + resultProfesor.instanceName;
+							if(resultProfesor.instanceName == sessionStorage.getItem("selectedAlumnoTutor")){selector +=" selected";}
+							selector += ">" + resultProfesor.name + "</option>";
+						} else if (!("AlumnoTutor" in sessionStorage) || sessionStorage.getItem("AlumnoTutor").split(", ").indexOf(resultProfesor.instanceName)<0){
+							selector += "<option value=" + resultProfesor.instanceName;
+							if(resultAlumno.tutor == resultProfesor.instanceName){selector +=" selected";}
+							selector += ">" + resultProfesor.name + "</option>";
+						}
+					});
+										document.querySelector("#inputtutor").innerHTML = selector;
+					if(alreadySelected.length>0){
+						document.querySelector("#addtutor").innerHTML = alreadySelected;
+					}
+					
+				
+				};
+				};
+			};
+		};           	
+	};
+	
+	function addAlumnoProperty(){
+		
+		sessionStorage.setItem("selectedAlumnoName", document.querySelector("#inputname").value);
+		var sel = document.querySelector("#inputasignaturas");
+		if (sel.options[sel.selectedIndex] != undefined){
+			var item= sel.options[sel.selectedIndex].text;
+		
+			var newItem;
+			for (key in sessionStorage){
+				if (sessionStorage.getItem(key) == item){
+					newItem = key;	
+				}
+			}
+		
+			if(newItem == undefined){
+				newItem = item;
+			}	
+		
+			var oldItems = sessionStorage.getItem("AlumnoAsignaturas");
+			var newItems;
+			if (oldItems == null || oldItems.length <= 0){
+				newItems = newItem;
+			}
+			else if(newItem.length>0){
+				newItems = oldItems + ", " + newItem;
+			}
+			else{
+				newItems = oldItems;
+			}
+			sessionStorage.setItem("AlumnoAsignaturas", newItems);
+		}
+		sessionStorage.setItem("selectedAlumnoTutor", document.querySelector("#inputtutor").value);
+		window.history.back();
+		//location.href = location.protocol + '//' + location.host + "/alumno.html?val=" + sessionStorage.getItem("currentInstanceAlumno");
+	}
+	
+	function removeAlumnoProperty(item){
+		
+		sessionStorage.setItem("selectedAlumnoName", document.querySelector("#inputname").value);	
+		var oldItems = sessionStorage.getItem("AlumnoAsignaturas").split(", ");
+		var itemPosition = oldItems.indexOf(item);
+		oldItems.splice(itemPosition, 1);
+				
+		sessionStorage.setItem("AlumnoAsignaturas", oldItems.join(", "));
+		window.history.back();
+		sessionStorage.setItem("selectedAlumnoTutor", document.querySelector("#inputtutor").value);	
+	}
+
+	function getDataFromDB(db, ent){
+		
+		var data = db.transaction([ent], 'readwrite');
+		var objectStore = data.objectStore(ent);
+		var requestObject = objectStore.getAll();
+			requestObject.onerror = function (evt){
+				console.log("Error while getting " + ent + " from database");
+			};
+			requestObject.onsucess = function (evt){	
+				return requestObject.result;
+			};
+	};
+	
+	function updateAlumno() {
+		var req = indexedDB.open("EjemploMemoria", 1);
+
+		req.onupgradeneeded = function(evt){
+			console.log("ONUPGRADEDNEEDED: EjemploMemoria.readAlumno: YOU MUST NOT SEE THIS MESSAGE");
+		};
+			
+		req.onerror = function(evt){
+			console.error("openDB:", evt.target.errorCode);
+		};
+
+		req.onsuccess=function(evt){
+		//Get argument from URL
+            
+            var updateInstanceName = sessionStorage.getItem("currentInstanceAlumno");
+           	var active = req.result;
+           	
+            //Get data from DB	
+           	var data = active.transaction(['Alumno'], 'readwrite');
+           	var objectStore = data.objectStore("Alumno");
+           	
+           	var requestObject = objectStore.get(updateInstanceName);
+           	
+           	requestObject.onerror = function(event) {
+           		console.log("error while getting " + instanceName + " from Alumno");
+ 					// Handle errors!
+			};
+			requestObject.onsuccess = function(event) {     
+				
+				var resultObject = requestObject.result;
+				
+				if("AlumnoName" in sessionStorage){
+					resultObject.name = sessionStorage.getItem("AlumnoName");
+				}else{
+					resultObject.name = document.querySelector("#inputname").value;
+				}
+				if("AlumnoAsignaturas" in sessionStorage){
+					resultObject.asignaturas = sessionStorage.getItem("AlumnoAsignaturas");
+				}else{
+					resultObject.asignaturas = document.querySelector("#inputasignaturas").value;
+				}
+				if("AlumnoTutor" in sessionStorage){
+					resultObject.tutor = sessionStorage.getItem("AlumnoTutor");
+				}else{
+					resultObject.tutor = document.querySelector("#inputtutor").value;
+				}
+				
+				var requestUpdate = objectStore.put(resultObject);
+   					requestUpdate.onerror = function(event) {
+     				// Do something with the error
+   				};
+   				requestUpdate.onsuccess = function(event) {
+   					sessionStorage.clear();
+   				
+     				location.href = location.protocol + '//' + location.host + "/alumno.html?val=" + updateInstanceName;
+            
+     				// Success - the data is updated!
+     			};
+   			};	
+        };
+	};
+	</script>
+</head>
+<body onload="getData();">
+	<h1 class="header section1" id="editAlumno"></h1>
+	<form>
+	<fieldset>
+		<legend>Details</legend>
+		<table id="editTableAlumno">
+			<tr><td>Name: </td>
+			<td><input type="text" id="inputname"/></td>
+			</tr>				
+			<tr><td>Tutor: </td>
+			<td> <select name="inputtutor" id="inputtutor"></select>
+			</td>
+			</tr>				
+			<tr><td>Asignaturas: </td>
+			<td> <select name="inputasignaturas" id="inputasignaturas"></select>
+			</td>
+			<td><p id=addasignaturas></p><p><button onclick="addAlumnoProperty();">Add</button></p></td></tr>				
+
+		</table>
+	</fieldset>
+	<button name="update" onclick="updateAlumno();">Update</button>
+	</form>
+</body>
+</html>

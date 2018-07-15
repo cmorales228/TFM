@@ -1,26 +1,119 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta http-equiv="Content-Type" content="text/html" charset="utf-8">
+	<script type="text/javascript">
+
+		var indexedDB = window.indexedDB || window.mozIndexedDB || window.webkitIndexedDB || window.msIndexedDB;
+
+        function getObjectFromDB() {
+                        
+            var req = indexedDB.open("EjemploMemoria", 1);
+
+			req.onupgradeneeded = function(evt){
+				console.log("ONUPGRADEDNEEDED: EjemploMemoria.readAsignatura: YOU MUST NOT SEE THIS MESSAGE");
+			};
+			
+			req.onerror = function(evt){
+				console.error("openDB:", evt.target.errorCode);
+			};
+
+			req.onsuccess=function(evt){
+				
+				//output variables
+            	var outerTable = "";
+            	
+            	//Get argument from URL
+            	var argURL = location.search.substr(1);
+            	var instanceName = argURL.split("=")[1];
+            	
+            	//Get data from DB	
+            	var active = req.result;
+            	var data = active.transaction(['Asignatura'], 'readonly');
+            	var objectStore = data.objectStore("Asignatura");
+            	
+            	var requestObject = objectStore.get(instanceName);
+            	
+            	requestObject.onerror = function(event) {
+            		console.log("error while getting " + instanceName + " from Asignatura");
+  					// Handle errors!
+				};
+				requestObject.onsuccess = function(event) {
+  					// Do something with the request.result!
+  					var resultAsignatura = requestObject.result;
+  					document.querySelector("#Asignatura").innerHTML = resultAsignatura.name;
+  					
+  					// Asignatura has a property of type Profesor, so request for it
+  					var linkDataProfesor = active.transaction(['Profesor'], 'readonly');
+            		var linkProfesorStore = linkDataProfesor.objectStore("Profesor");
+            		var requestLinkProfesor = linkProfesorStore.getAll();
+           			requestLinkProfesor.onerror = function(event) {
+            			console.log("error while getting " + requestValue + " from Profesor");
+  						// Handle errors!
+					};
+					requestLinkProfesor.onsuccess = function(event) {
+
+					//Add entity Asignatura, property Coordinador
+					outerTable += "\n\t<tr>\n\t\t<td>Coordinador:</td>\n\t\t<td><ul>";
+					if (resultAsignatura.coordinador!=null){
+						resultAsignatura.coordinador.split(", ").forEach(function (requestValue){
+						if (resultAsignatura.coordinador.includes(", ")){outerTable +="<li>";}
+							requestLinkProfesor.result.forEach(function (instance){
+								if (instance.instanceName == requestValue){
+									outerTable += "<a href='profesor.html?val=" + requestValue + "'> " + instance.name + "</a>\n";
+									}
+							});
+						if (resultAsignatura.coordinador.includes(", ")){outerTable +="</li>";}
+         		    	});		
+					}else{
+						requestLinkProfesor.result.forEach(function(resultProfesor){
+							if (resultProfesor.asignatura.split(", ").includes(resultAsignatura.instanceName)){
+								outerTable +="<li>";
+								outerTable += "<a href='profesor.html?val=" + resultProfesor.instanceName + "'> " + resultProfesor.name + "</a>\n";
+								
+								outerTable +="</li>";
+								}
+						});						
+					}
+					outerTable += "</ul></td>\n\t</tr>";
+					//Add entity Asignatura, property Code
+					outerTable += "\n\t<tr>\n\t\t<td>Code:</td>\n\t\t<td><ul>";
+					if (resultAsignatura.code!=null){
+						resultAsignatura.code.split(", ").forEach(function (requestValue){
+						if (resultAsignatura.code.includes(", ")){outerTable +="<li>";}
+							outerTable += requestValue;
+						if (resultAsignatura.code.includes(", ")){outerTable +="</li>";}
+         		    	});		
+					}else{
+						outerTable += "0";
+					}
+					outerTable += "</ul></td>\n\t</tr>";
+					//Add entity Asignatura, property Name
+					outerTable += "\n\t<tr>\n\t\t<td>Name:</td>\n\t\t<td><ul>";
+					if (resultAsignatura.name!=null){
+						resultAsignatura.name.split(", ").forEach(function (requestValue){
+						if (resultAsignatura.name.includes(", ")){outerTable +="<li>";}
+							outerTable += requestValue;
+						if (resultAsignatura.name.includes(", ")){outerTable +="</li>";}
+         		    	});		
+					}else{
+						outerTable += "0";
+					}
+					outerTable += "</ul></td>\n\t</tr>";
+						document.querySelector("#viewAsignatura").innerHTML = outerTable;
+					};
+					
+				};          	
+			};
+		};
+	</script>
 </head>
-<body id="Asignatura">
-	<h1 class="header section1">m_var.name</h1>
+<body onload="getObjectFromDB();">
+	<h1 class="header section1" id=Asignatura></h1>
 	<fieldset>
 		<legend>Details</legend>
-		<table>
-			<tr>
-				<td><label>Coordinador: </label></td>
-				<td><p id="Coordinador"></p><script>document.getElementById("Coordinador:").innerHTML = m_var.name</script></td>
-			</tr><tr>
-				<td><label>Code: </label></td>
-				<td><p id="Code"></p><script>document.getElementById("Code:").innerHTML = m_var.name</script></td>
-			</tr><tr>
-				<td><label>Name: </label></td>
-				<td><p id="Name"></p><script>document.getElementById("Name:").innerHTML = m_var.name</script></td>
-			</tr>
+		<table id="viewAsignatura">
 		</table>
 	</fieldset>
 </body>
-<script type="text/javascript" src="js/index.js"></script>
 </html>
-

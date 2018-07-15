@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html" charset="utf-8">
+	<script type="text/javascript">
+
+	var indexedDB = window.indexedDB || window.mozIndexedDB || window.webkitIndexedDB || window.msIndexedDB;
+
+    function getData() {
+                       
+    	var req = indexedDB.open("EjemploMemoria", 1);
+
+		req.onupgradeneeded = function(evt){
+			console.log("ONUPGRADEDNEEDED: EjemploMemoria.readAsignatura: YOU MUST NOT SEE THIS MESSAGE");
+		};
+			
+		req.onerror = function(evt){
+			console.error("openDB:", evt.target.errorCode);
+		};
+
+		req.onsuccess=function(evt){
+			
+			var active = req.result;
+			
+			
+  			// Asignatura has a property of type Profesor, so request for it
+  			var linkDataProfesor = active.transaction(['Profesor'], 'readonly');
+           	var linkProfesorStore = linkDataProfesor.objectStore("Profesor");
+	          	var requestLinkProfesor = linkProfesorStore.getAll();
+    	   	requestLinkProfesor.onerror = function(event) {
+        	  		console.log("error while getting data from Profesor");
+  				// Handle errors!
+			};
+			requestLinkProfesor.onsuccess = function(event) {
+				selectInput = "";
+				selectInput += "<option selected value></option>";
+				requestLinkProfesor.result.forEach(function (valueLinkProfesor) {	
+					sessionStorage.setItem( valueLinkProfesor.instanceName, valueLinkProfesor.name);
+					if(!("AsignaturaCoordinador" in sessionStorage) || (sessionStorage.getItem("AsignaturaCoordinador")).split(", ").indexOf(valueLinkProfesor.instanceName)<0){
+						selectInput += "<option value=" + valueLinkProfesor.instanceName;
+						if (("selectedAsignaturaCoordinador" in sessionStorage) && sessionStorage.getItem("selectedAsignaturaCoordinador") == valueLinkProfesor.instanceName)
+						{selectInput += " selected";}
+						selectInput +=">" + valueLinkProfesor.name + "</option>\n";
+						
+					}
+				   
+				});
+				 
+			};
+			
+			if ("selectedAsignaturaCode" in sessionStorage){
+				document.querySelector("#inputcode").value = sessionStorage.getItem("selectedAsignaturaCode");
+			} 
+			
+			if ("selectedAsignaturaName" in sessionStorage){
+				document.querySelector("#inputname").value = sessionStorage.getItem("selectedAsignaturaName");
+			} 
+			
+		};           	
+	};
+	
+	function addAsignaturaProperty(){
+		sessionStorage.setItem("selectedAsignaturaCode", document.querySelector("#inputcode").value);
+		sessionStorage.setItem("selectedAsignaturaName", document.querySelector("#inputname").value);
+	}
+	
+	function removeAsignaturaProperty(item){
+		
+		sessionStorage.setItem("selectedAsignaturaCode", document.querySelector("#inputcode").value);
+		sessionStorage.setItem("selectedAsignaturaName", document.querySelector("#inputname").value);
+	}
+	
+	
+	function createAsignatura() {
+		var req = indexedDB.open("EjemploMemoria", 1);
+
+		req.onupgradeneeded = function(evt){
+			console.log("ONUPGRADEDNEEDED: EjemploMemoria.readAsignatura: YOU MUST NOT SEE THIS MESSAGE");
+		};
+			
+		req.onerror = function(evt){
+			console.error("openDB:", evt.target.errorCode);
+		};
+
+		req.onsuccess=function(evt){
+		
+		var newInstanceName = "Asignatura" + (new Date()).getTime();
+		var newData = {instanceName: newInstanceName};
+		
+		
+		if("AsignaturaCode" in sessionStorage){
+			newData['code'] = sessionStorage.getItem("AsignaturaCode");
+			sessionStorage.removeItem("AsignaturaCode");
+		}else{
+			newData['code'] = document.querySelector("#inputcode").value;
+		}
+		
+		if("AsignaturaName" in sessionStorage){
+			newData['name'] = sessionStorage.getItem("AsignaturaName");
+			sessionStorage.removeItem("AsignaturaName");
+		}else{
+			newData['name'] = document.querySelector("#inputname").value;
+		}
+			
+		var active = req.result;
+        var data = active.transaction(['Asignatura'], 'readwrite');
+        var objectStore = data.objectStore("Asignatura");
+        objectStore.add(newData);
+            
+        sessionStorage.clear();
+        location.href = location.protocol + '//' + location.host + "/asignatura.html?val=" + newInstanceName;
+          		
+       };
+	};
+	</script>
+</head>
+<body onload="getData();">
+	<h1 class="header section1" id=Asignatura>Create Asignatura</h1>
+	<form>
+	<fieldset>
+		<legend>Details</legend>
+		<table id="createAsignatura">
+			<tr><td>Name: </td>
+			<td><input type="text" id="inputname"/></td>
+			</tr>				
+			<tr><td>Code: </td>
+			<td><input type="text" id="inputcode"/></td>
+			</tr>				
+
+		</table>
+	</fieldset>
+	<button name="saveAsignatura" onclick="createAsignatura();">Save</button>
+	</form>
+</body>
+</html>

@@ -1,29 +1,146 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta http-equiv="Content-Type" content="text/html" charset="utf-8">
+	<script type="text/javascript">
+
+		var indexedDB = window.indexedDB || window.mozIndexedDB || window.webkitIndexedDB || window.msIndexedDB;
+
+        function getObjectFromDB() {
+                        
+            var req = indexedDB.open("EjemploMemoria", 1);
+
+			req.onupgradeneeded = function(evt){
+				console.log("ONUPGRADEDNEEDED: EjemploMemoria.readProfesor: YOU MUST NOT SEE THIS MESSAGE");
+			};
+			
+			req.onerror = function(evt){
+				console.error("openDB:", evt.target.errorCode);
+			};
+
+			req.onsuccess=function(evt){
+				
+				//output variables
+            	var outerTable = "";
+            	
+            	//Get argument from URL
+            	var argURL = location.search.substr(1);
+            	var instanceName = argURL.split("=")[1];
+            	
+            	//Get data from DB	
+            	var active = req.result;
+            	var data = active.transaction(['Profesor'], 'readonly');
+            	var objectStore = data.objectStore("Profesor");
+            	
+            	var requestObject = objectStore.get(instanceName);
+            	
+            	requestObject.onerror = function(event) {
+            		console.log("error while getting " + instanceName + " from Profesor");
+  					// Handle errors!
+				};
+				requestObject.onsuccess = function(event) {
+  					// Do something with the request.result!
+  					var resultProfesor = requestObject.result;
+  					document.querySelector("#Profesor").innerHTML = resultProfesor.name;
+  					
+  					// Profesor has a property of type Asignatura, so request for it
+  					var linkDataAsignatura = active.transaction(['Asignatura'], 'readonly');
+            		var linkAsignaturaStore = linkDataAsignatura.objectStore("Asignatura");
+            		var requestLinkAsignatura = linkAsignaturaStore.getAll();
+           			requestLinkAsignatura.onerror = function(event) {
+            			console.log("error while getting " + requestValue + " from Asignatura");
+  						// Handle errors!
+					};
+					requestLinkAsignatura.onsuccess = function(event) {
+
+  					// Profesor has a property of type Alumno, so request for it
+  					var linkDataAlumno = active.transaction(['Alumno'], 'readonly');
+            		var linkAlumnoStore = linkDataAlumno.objectStore("Alumno");
+            		var requestLinkAlumno = linkAlumnoStore.getAll();
+           			requestLinkAlumno.onerror = function(event) {
+            			console.log("error while getting " + requestValue + " from Alumno");
+  						// Handle errors!
+					};
+					requestLinkAlumno.onsuccess = function(event) {
+
+					//Add entity Profesor, property Password
+					outerTable += "\n\t<tr>\n\t\t<td>Password:</td>\n\t\t<td><ul>";
+					if (resultProfesor.password!=null){
+						resultProfesor.password.split(", ").forEach(function (requestValue){
+						if (resultProfesor.password.includes(", ")){outerTable +="<li>";}
+							outerTable += requestValue;
+						if (resultProfesor.password.includes(", ")){outerTable +="</li>";}
+         		    	});		
+					}else{
+						outerTable += "0";
+					}
+					outerTable += "</ul></td>\n\t</tr>";
+					//Add entity Profesor, property Asignatura
+					outerTable += "\n\t<tr>\n\t\t<td>Asignatura:</td>\n\t\t<td><ul>";
+					if (resultProfesor.asignatura!=null){
+						resultProfesor.asignatura.split(", ").forEach(function (requestValue){
+						if (resultProfesor.asignatura.includes(", ")){outerTable +="<li>";}
+							requestLinkAsignatura.result.forEach(function (instance){
+								if (instance.instanceName == requestValue){
+									outerTable += "<a href='asignatura.html?val=" + requestValue + "'> " + instance.name + "</a>\n";
+									}
+							});
+						if (resultProfesor.asignatura.includes(", ")){outerTable +="</li>";}
+         		    	});		
+					}else{
+						
+					}
+					outerTable += "</ul></td>\n\t</tr>";
+					//Add entity Profesor, property Alumnos
+					outerTable += "\n\t<tr>\n\t\t<td>Alumnos:</td>\n\t\t<td><ul>";
+					if (resultProfesor.alumnos!=null){
+						resultProfesor.alumnos.split(", ").forEach(function (requestValue){
+						if (resultProfesor.alumnos.includes(", ")){outerTable +="<li>";}
+							requestLinkAlumno.result.forEach(function (instance){
+								if (instance.instanceName == requestValue){
+									outerTable += "<a href='alumno.html?val=" + requestValue + "'> " + instance.name + "</a>\n";
+									}
+							});
+						if (resultProfesor.alumnos.includes(", ")){outerTable +="</li>";}
+         		    	});		
+					}else{
+						requestLinkAlumno.result.forEach(function(resultAlumno){
+							if (resultAlumno.tutor.split(", ").includes(resultProfesor.instanceName)){
+								outerTable +="<li>";
+								outerTable += "<a href='alumno.html?val=" + resultAlumno.instanceName + "'> " + resultAlumno.name + "</a>\n";
+								
+								outerTable +="</li>";
+								}
+						});						
+					}
+					outerTable += "</ul></td>\n\t</tr>";
+					//Add entity Profesor, property Name
+					outerTable += "\n\t<tr>\n\t\t<td>Name:</td>\n\t\t<td><ul>";
+					if (resultProfesor.name!=null){
+						resultProfesor.name.split(", ").forEach(function (requestValue){
+						if (resultProfesor.name.includes(", ")){outerTable +="<li>";}
+							outerTable += requestValue;
+						if (resultProfesor.name.includes(", ")){outerTable +="</li>";}
+         		    	});		
+					}else{
+						outerTable += "0";
+					}
+					outerTable += "</ul></td>\n\t</tr>";
+						document.querySelector("#viewProfesor").innerHTML = outerTable;
+					};
+					};
+					
+				};          	
+			};
+		};
+	</script>
 </head>
-<body id="Profesor">
-	<h1 class="header section1">m_var.name</h1>
+<body onload="getObjectFromDB();">
+	<h1 class="header section1" id=Profesor></h1>
 	<fieldset>
 		<legend>Details</legend>
-		<table>
-			<tr>
-				<td><label>Password: </label></td>
-				<td><p id="Password"></p><script>document.getElementById("Password:").innerHTML = m_var.name</script></td>
-			</tr><tr>
-				<td><label>Asignatura: </label></td>
-				<td><p id="Asignatura"></p><script>document.getElementById("Asignatura:").innerHTML = m_var.name</script></td>
-			</tr><tr>
-				<td><label>Alumnos: </label></td>
-				<td><p id="Alumnos"></p><script>document.getElementById("Alumnos:").innerHTML = m_var.name</script></td>
-			</tr><tr>
-				<td><label>Name: </label></td>
-				<td><p id="Name"></p><script>document.getElementById("Name:").innerHTML = m_var.name</script></td>
-			</tr>
+		<table id="viewProfesor">
 		</table>
 	</fieldset>
 </body>
-<script type="text/javascript" src="js/index.js"></script>
 </html>
-

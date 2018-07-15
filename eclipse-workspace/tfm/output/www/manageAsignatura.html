@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html" charset="utf-8">
+<script>
+
+	var indexedDB = window.indexedDB || window.mozIndexedDB || window.webkitIndexedDB || window.msIndexedDB;
+
+    function getData() {
+		
+		var urlLocation = location.protocol + "//" + location.host;
+		
+		document.querySelector("#createAsignatura").href = urlLocation + "/createAsignatura.html";
+                       
+    	var req = indexedDB.open("EjemploMemoria", 1);
+
+		req.onupgradeneeded = function(evt){
+			console.log("ONUPGRADEDNEEDED: EjemploMemoria.readAsignatura: YOU MUST NOT SEE THIS MESSAGE");
+		};
+			
+		req.onerror = function(evt){
+			console.error("openDB:", evt.target.errorCode);
+		};
+
+		req.onsuccess=function(evt){
+		
+			var active = req.result;
+            var data = active.transaction(['Asignatura'], 'readonly');
+            var objectStore = data.objectStore("Asignatura");
+        	var allObjectsStore = objectStore.getAll();    
+        
+        	allObjectsStore.onerror = function(event) {
+           		console.log("error while getting " + requestValue + " from Asignatura");
+  				// Handle errors!
+			};
+			allObjectsStore.onsuccess = function(event) {
+        		output = "";
+        		allObjectsStore.result.forEach(function (objectAsignatura){
+        			output += "<p><a href='" + urlLocation + "/asignatura.html?val=" + objectAsignatura.instanceName + "'>" + objectAsignatura.name +"</a> ";
+					output += "<a href='" + urlLocation + "/editasignatura.html?val=" + objectAsignatura.instanceName + "'>edit</a></p>";
+					output += "<button onclick='deleteData(\"" + objectAsignatura.instanceName + "\");'>remove</button>\n";
+        		});
+        		document.querySelector("#manageAsignatura").innerHTML = output;
+        	};		
+		};
+	};
+	
+	function deleteData(deleteEntityName){
+	
+		console.log("deletedata from Asignatura with name " + deleteEntityName);
+		var req = indexedDB.open("EjemploMemoria", 1);
+
+		req.onupgradeneeded = function(evt){
+			console.log("ONUPGRADEDNEEDED: EjemploMemoria.readAsignatura: YOU MUST NOT SEE THIS MESSAGE");
+		};
+			
+		req.onerror = function(evt){
+			console.error("openDB:", evt.target.errorCode);
+		};
+
+		req.onsuccess=function(evt){
+			var active = req.result;
+            var data = active.transaction(['Asignatura'], 'readwrite');
+            var objectStore = data.objectStore("Asignatura");
+            var request = objectStore.delete(deleteEntityName);
+            
+            request.onerror = function (evt){
+            	console.error("Error while removing " + deleteEntityName + " from database");
+            };
+            request.onsuccess = function (evt){
+            	var data = active.transaction(['Profesor'], 'readwrite');
+            	var objectStoreDel = data.objectStore("Profesor");
+            	var requestDel = objectStoreDel.getAll();
+            	requestDel.onerror = function (evt){
+            		console.error("Error while getting data from Profesor")
+            	};
+            	requestDel.onsuccess = function (evt){
+            		requestDel.result.forEach(function(resultProfesor){
+            			console.log("profesor: " + resultProfesor.instanceName);
+            			if(resultProfesor.asignatura && resultProfesor.asignatura.split(", ").includes(deleteEntityName)){
+            				
+            				var items = resultProfesor.asignatura.split(", ");
+							var itemPosition = items.indexOf(deleteEntityName);
+							items.splice(itemPosition, 1);
+							resultProfesor.asignatura = items.join(", ");
+							
+							var requestUpdate = objectStoreDel.put(resultProfesor);
+            			}
+            		});
+            	};
+            		
+            	var data = active.transaction(['Alumno'], 'readwrite');
+            	var objectStoreDel = data.objectStore("Alumno");
+            	var requestDel = objectStoreDel.getAll();
+            	requestDel.onerror = function (evt){
+            		console.error("Error while getting data from Alumno")
+            	};
+            	requestDel.onsuccess = function (evt){
+            		requestDel.result.forEach(function(resultAlumno){
+            			console.log("profesor: " + resultAlumno.instanceName);
+            			if(resultAlumno.asignaturas && resultAlumno.asignaturas.split(", ").includes(deleteEntityName)){
+            				
+            				var items = resultAlumno.asignaturas.split(", ");
+							var itemPosition = items.indexOf(deleteEntityName);
+							items.splice(itemPosition, 1);
+							resultAlumno.asignaturas = items.join(", ");
+							
+							var requestUpdate = objectStoreDel.put(resultAlumno);
+            			}
+            		});
+            	};
+            		
+            	console.log("Element " + deleteEntityName + " removed from Asignatura");
+            	sessionStorage.clear();
+            	getData();
+            };
+		};
+	};
+	</script>
+</head>
+<body onload="getData();">
+	<h1 class="header section1" id=Asignatura>Manage Asignatura</h1>
+	<a id=createAsignatura>create</a>
+	<p id="manageAsignatura">
+	</p>
+</body>
+</html>

@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html" charset="utf-8">
+	<script type="text/javascript">
+
+	var indexedDB = window.indexedDB || window.mozIndexedDB || window.webkitIndexedDB || window.msIndexedDB;
+
+    function getData() {
+                       
+    	var req = indexedDB.open("EjemploMemoria", 1);
+
+		req.onupgradeneeded = function(evt){
+			console.log("ONUPGRADEDNEEDED: EjemploMemoria.readAlumno: YOU MUST NOT SEE THIS MESSAGE");
+		};
+			
+		req.onerror = function(evt){
+			console.error("openDB:", evt.target.errorCode);
+		};
+
+		req.onsuccess=function(evt){
+			
+			var active = req.result;
+			
+			
+			if ("selectedAlumnoName" in sessionStorage){
+				document.querySelector("#inputname").value = sessionStorage.getItem("selectedAlumnoName");
+			} 
+			
+  			// Alumno has a property of type Asignatura, so request for it
+  			var linkDataAsignatura = active.transaction(['Asignatura'], 'readonly');
+           	var linkAsignaturaStore = linkDataAsignatura.objectStore("Asignatura");
+	          	var requestLinkAsignatura = linkAsignaturaStore.getAll();
+    	   	requestLinkAsignatura.onerror = function(event) {
+        	  		console.log("error while getting data from Asignatura");
+  				// Handle errors!
+			};
+			requestLinkAsignatura.onsuccess = function(event) {
+				selectInput = "";
+				selectInput += "<option selected value></option>";
+				requestLinkAsignatura.result.forEach(function (valueLinkAsignatura) {	
+					sessionStorage.setItem( valueLinkAsignatura.instanceName, valueLinkAsignatura.name);
+					if(!("AlumnoAsignaturas" in sessionStorage) || (sessionStorage.getItem("AlumnoAsignaturas")).split(", ").indexOf(valueLinkAsignatura.instanceName)<0){
+						selectInput += "<option value=" + valueLinkAsignatura.instanceName;
+						if (("selectedAlumnoAsignaturas" in sessionStorage) && sessionStorage.getItem("selectedAlumnoAsignaturas") == valueLinkAsignatura.instanceName)
+						{selectInput += " selected";}
+						selectInput +=">" + valueLinkAsignatura.name + "</option>\n";
+						
+					}
+				   
+				});
+								document.querySelector("#inputasignaturas").innerHTML = selectInput;
+			};
+			
+  			// Alumno has a property of type Profesor, so request for it
+  			var linkDataProfesor = active.transaction(['Profesor'], 'readonly');
+           	var linkProfesorStore = linkDataProfesor.objectStore("Profesor");
+	          	var requestLinkProfesor = linkProfesorStore.getAll();
+    	   	requestLinkProfesor.onerror = function(event) {
+        	  		console.log("error while getting data from Profesor");
+  				// Handle errors!
+			};
+			requestLinkProfesor.onsuccess = function(event) {
+				selectInput = "";
+				selectInput += "<option selected value></option>";
+				requestLinkProfesor.result.forEach(function (valueLinkProfesor) {	
+					sessionStorage.setItem( valueLinkProfesor.instanceName, valueLinkProfesor.name);
+					if(!("AlumnoTutor" in sessionStorage) || (sessionStorage.getItem("AlumnoTutor")).split(", ").indexOf(valueLinkProfesor.instanceName)<0){
+						selectInput += "<option value=" + valueLinkProfesor.instanceName;
+						if (("selectedAlumnoTutor" in sessionStorage) && sessionStorage.getItem("selectedAlumnoTutor") == valueLinkProfesor.instanceName)
+						{selectInput += " selected";}
+						selectInput +=">" + valueLinkProfesor.name + "</option>\n";
+						
+					}
+				   
+				});
+								document.querySelector("#inputtutor").innerHTML = selectInput;
+			};
+			
+			if("AlumnoAsignaturas" in sessionStorage){
+			var objectAsignaturasAdded = sessionStorage.getItem("AlumnoAsignaturas");
+			var output = "<p>";
+			objectAsignaturasAdded.split(", ").forEach(function(object){
+				if(sessionStorage.getItem(object)){
+					output += "<fieldset id=asignaturas><label>" + sessionStorage.getItem(object) + "</label><button onclick='removeAlumnoAsignaturas(\""+object+"\")'>x</button></fieldset>";
+				}else{
+					output += "<fieldset id=asignaturas><label>" + object + "</label><button onclick='removeAlumnoAsignaturas(\""+object+"\")'>x</button></fieldset>";					
+				}
+			});
+			output +="</p>";
+				document.querySelector("#addasignaturas").innerHTML = output;
+			}
+		};           	
+	};
+	
+	function addAlumnoProperty(){
+		sessionStorage.setItem("selectedAlumnoName", document.querySelector("#inputname").value);
+		var sel = document.querySelector("#inputasignaturas");
+		var item= sel.options[sel.selectedIndex].text;
+		
+		var newItem;
+		for (key in sessionStorage){
+			if (sessionStorage.getItem(key) == item){
+				newItem = key;	
+			}
+		}
+		
+		if(newItem == undefined){
+			newItem = item;
+		}
+		
+		var oldItems = sessionStorage.getItem("AlumnoAsignaturas");
+		var newItems;
+		if (oldItems == null){
+			newItems = newItem
+		}
+		else{
+			newItems = oldItems + ", " + newItem;
+		}
+		sessionStorage.setItem("AlumnoAsignaturas", newItems);
+		sessionStorage.setItem("selectedAlumnoTutor", document.querySelector("#inputtutor").value);
+	}
+	
+	function removeAlumnoProperty(item){
+		
+		sessionStorage.setItem("selectedAlumnoName", document.querySelector("#inputname").value);
+		var oldItems = sessionStorage.getItem("AlumnoAsignaturas").split(", ");
+		var itemPosition = oldItems.indexOf(item);
+		oldItems.splice(itemPosition, 1);
+				
+		if(oldItems.length > 0){
+			sessionStorage.setItem("AlumnoAsignaturas", oldItems.join(", "));
+		}else{
+			sessionStorage.removeItem("AlumnoAsignaturas");
+		}
+		sessionStorage.setItem("selectedAlumnoTutor", document.querySelector("#inputtutor").value);
+	}
+	
+	
+	function createAlumno() {
+		var req = indexedDB.open("EjemploMemoria", 1);
+
+		req.onupgradeneeded = function(evt){
+			console.log("ONUPGRADEDNEEDED: EjemploMemoria.readAlumno: YOU MUST NOT SEE THIS MESSAGE");
+		};
+			
+		req.onerror = function(evt){
+			console.error("openDB:", evt.target.errorCode);
+		};
+
+		req.onsuccess=function(evt){
+		
+		var newInstanceName = "Alumno" + (new Date()).getTime();
+		var newData = {instanceName: newInstanceName};
+		
+		
+		if("AlumnoName" in sessionStorage){
+			newData['name'] = sessionStorage.getItem("AlumnoName");
+			sessionStorage.removeItem("AlumnoName");
+		}else{
+			newData['name'] = document.querySelector("#inputname").value;
+		}
+		
+		if("AlumnoAsignaturas" in sessionStorage){
+			newData['asignaturas'] = sessionStorage.getItem("AlumnoAsignaturas");
+			sessionStorage.removeItem("AlumnoAsignaturas");
+		}else{
+			newData['asignaturas'] = document.querySelector("#inputasignaturas").value;
+		}
+		
+		if("AlumnoTutor" in sessionStorage){
+			newData['tutor'] = sessionStorage.getItem("AlumnoTutor");
+			sessionStorage.removeItem("AlumnoTutor");
+		}else{
+			newData['tutor'] = document.querySelector("#inputtutor").value;
+		}
+			
+		var active = req.result;
+        var data = active.transaction(['Alumno'], 'readwrite');
+        var objectStore = data.objectStore("Alumno");
+        objectStore.add(newData);
+            
+        sessionStorage.clear();
+        location.href = location.protocol + '//' + location.host + "/alumno.html?val=" + newInstanceName;
+          		
+       };
+	};
+	</script>
+</head>
+<body onload="getData();">
+	<h1 class="header section1" id=Alumno>Create Alumno</h1>
+	<form>
+	<fieldset>
+		<legend>Details</legend>
+		<table id="createAlumno">
+			<tr><td>Name: </td>
+			<td><input type="text" id="inputname"/></td>
+			</tr>				
+			<tr><td>Tutor: </td>
+			<td> <select name="inputtutor" id="inputtutor"></select>
+			</td>
+			</tr>				
+			<tr><td>Asignaturas: </td>
+			<td> <select name="inputasignaturas" id="inputasignaturas"></select>
+			</td>
+			<td><p id=addasignaturas></p><p><button onclick="addAlumnoProperty();">Add</button></p></td></tr>				
+
+		</table>
+	</fieldset>
+	<button name="saveAlumno" onclick="createAlumno();">Save</button>
+	</form>
+</body>
+</html>
