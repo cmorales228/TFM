@@ -1,1 +1,1 @@
-		<a href="#" id="${page.getPage()}" class="navigate" onclick="setCurrentVar(<#list arguments as arg>'${arg}'<#sep>,</#list>)">${page.getText()}</a> 
+		<a href='${page.getPage()}.html<#if arguments?has_content><#list arguments as arg>?val=${arg?replace("\"","")}<#sep>?</#list></#if>' id="${page.getPage()}" class="navigate">${page.getText()}</a>

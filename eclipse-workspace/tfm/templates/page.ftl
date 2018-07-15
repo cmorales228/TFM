@@ -1,7 +1,12 @@
 <!DOCTYPE html>
 <html> 
-	<body id="${pageId}">
-	${body}	
+    <meta charset="UTF-8">
+    <title></title>
+    <head>
+    ${database}
+    </head>
+	<body id="${pageId}" onload="startDB();"><h3>
+		${body}
+	</h3>
 	</body>
-	<script type="text/javascript" src="js/index.js"></script>
 </html>
