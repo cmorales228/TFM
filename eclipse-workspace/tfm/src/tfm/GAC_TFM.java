@@ -6,8 +6,10 @@ public class GAC_TFM {
 	private static ParseInputFolder m_input;
 	private static GenerateOutput m_output;
 
+	//Main Class
 	public static void main(String[] args) {
 		
+		System.out.println("\n\t\tGAC-TFM starts\n");
 		//Read the configuration file
 		m_config = new ConfigurationFile();
 		
@@ -16,39 +18,32 @@ public class GAC_TFM {
 		
 		//generate output
 		generateOutput();
+		System.out.println("\n\t\tGAC-TFM ends\n");
 	}
 	
 	private static void parseInput() {
 		
+		//Create parse input data
 		m_input = new ParseInputFolder(m_config.getInputFolder());
-		m_input.parseIniFile();
-		m_input.parseDataFile();
-		m_input.parseInitializationFile();
-		m_input.parsePageFile(); //parse the root page
-		m_input.processInverse();
-		//m_input.print();
 		
-		try {
-			Thread.sleep(10);
-		} catch (InterruptedException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
+		m_input.parseIniFile();  //parse configuration file for WebDSL
+		m_input.parseDataFile();  //parse entity data
+		m_input.parseInitializationFile(); //parse instances 
+		m_input.parsePageFile(); //parse the root page
+		m_input.parseCssFile(); // parse the css file
+		m_input.processInverse();  //process the inverse properties
+		//m_input.print();
 		
 	}
 	
 	private static void generateOutput() {
 		
-		m_output = new GenerateOutput(m_config.getOutputFolder());
+		//create generate output class
+		m_output = new GenerateOutput(m_config.getOutputFolder(), m_input);
 		
-		m_output.generateOutputConfig(m_input.getAppName());
-		m_output.generateRootFile(m_input.getPages().get(m_input.getAppName()), m_input.getAppName());
-		m_output.generateDataFile(m_input.getEntities(),m_input.getInstances());
-		m_output.generatePages(m_input.getPages(), m_input.getEntities());
-		
-		m_output.generateJavaScript();
-		
+		m_output.generateOutputConfig(); //generate configuration for Apache Cordova
+		m_output.generateRootFile(); //generate root file
+		m_output.generatePages(); //generate root and CRUD pages
+		m_output.generateCssFile(); //generate CSS file
 	}
-		
-
 }

@@ -7,6 +7,7 @@ public class Property {
 	private boolean m_isSetOrList = false;
 	private String m_pinverse = null;
 	private String m_einverse = null;
+	private Boolean m_editable = true;
 	
 	public Property() {
 		
@@ -32,6 +33,10 @@ public class Property {
 		return m_einverse;
 	}
 	
+	public Boolean getEditable() {
+		return m_editable;
+	}
+	
 	public void setType(String type) {
 		this.m_type = type;
 	}
@@ -48,7 +53,11 @@ public class Property {
 		this.m_pinverse = pinverse;
 	}
 
-	public void setEinverse(String m_einverse) {
-		this.m_einverse = m_einverse;
+	public void setEinverse(String einverse) {
+		this.m_einverse = einverse;
+	}
+	
+	public void setEditable(Boolean editable) {
+		this.m_editable = editable;
 	}
 }

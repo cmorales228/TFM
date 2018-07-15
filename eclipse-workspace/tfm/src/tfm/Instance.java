@@ -44,20 +44,14 @@ public class Instance {
 	
 	public void addValue(Property property, String value) {
 		
+		String newValue = (value.replace("[", "")).replace("]","");
+		
 		if (property.isSetOrList() && m_values.containsKey(property.getName())) {
 			String lastValue = m_values.get(property.getName());
-			String newValue;
-			
-			if(lastValue.contains(",")) {
-				newValue = lastValue.substring(0, lastValue.length()-1);
-				newValue = newValue + ", " + value + "]";
-			}
-			else {
-				newValue = "[" + lastValue + ", " + value + "]";
-			}
+			m_values.put(property.getName(), lastValue + ", " + newValue);
 		}
 		else {
-			m_values.put(property.getName(), value);
+			m_values.put(property.getName(), newValue);
 		}
 	}
 	

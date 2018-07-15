@@ -33,7 +33,6 @@ public class PageNavigate implements PageElement {
 	}
 	
 	public void addArgument(String argument) {
-
 		this.m_arguments.add(argument);
 	}
 	

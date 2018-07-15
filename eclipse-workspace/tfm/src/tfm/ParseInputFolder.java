@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 
 public class ParseInputFolder {
 
@@ -35,7 +36,8 @@ public class ParseInputFolder {
 	private Instance m_currentInstance;
 	private HashMap<String, Entity> m_entidades;
 	private HashMap<String, Page> m_pages;
-	private HashMap<String, Instance> m_instances;
+	private LinkedHashMap<String, Instance> m_instances;
+	private String m_cssContent;
 	private String m_inputFolder;
 	private String m_appName;
 
@@ -44,7 +46,8 @@ public class ParseInputFolder {
 		m_inputFolder = inputFolderName;
 		m_entidades = new HashMap<String, Entity>();
 		m_pages = new HashMap<String, Page>();
-		m_instances = new HashMap<String, Instance>();
+		m_instances = new LinkedHashMap<String, Instance>();
+		m_cssContent = "";
 
 		initialisePatterns();
 	}
@@ -93,10 +96,17 @@ public class ParseInputFolder {
 				Pattern.compile("\\s*[}]\\s*;\\s*$"));
 	}
 
+	/*
+	 * paraIniFile
+	 * Input: none
+	 * Output: none
+	 * Description: read configuration file for WebDSL application
+	 *              to get the application name
+	 */
 	void parseIniFile() {		
-
+		System.out.print("Parsing configuration file for WebDSL...");
 		try {	
-
+			
 			BufferedReader br = new BufferedReader(new FileReader(m_inputFolder + "/" + INI_FILE));
 			String line = br.readLine();
 			boolean appNameFound = false;
@@ -112,10 +122,18 @@ public class ParseInputFolder {
 		}catch(IOException e) {
 			e.printStackTrace();
 		}
+		System.out.println("\tDONE");
 	}
 	
+	/*
+	 * parseDataFile
+	 * input: none
+	 * output: none
+	 * Description: Parse WebDSL file in which entities are described.
+	 * 				Create the Entity and Property objects for them. 
+	 */
 	void parseDataFile() {
-
+		System.out.print("Parsing entities for WebDSL...");
 		try {
 			BufferedReader br = new BufferedReader(new FileReader(m_inputFolder + '/' + DATA_FILE));
 			String line = br.readLine();
@@ -134,16 +152,23 @@ public class ParseInputFolder {
 		}catch(IOException e) {
 			e.printStackTrace();
 		}
+		System.out.println("\t\t\tDONE");
 	}
 
+	/*
+	 * parsePageFile
+	 * input: none
+	 * output: none
+	 * Description Parse root page. It may contains CRUD sentences and navigate link
+	 */
 	void parsePageFile() {
 		
+		System.out.print("Parsing root page...");
 		try {
 			BufferedReader br = new BufferedReader(new FileReader(m_inputFolder + "/" + m_appName + ".app"));
 			String line = br.readLine();
 
 			boolean pageFound = false;
-			//boolean formFound = false;
 
 			while (line != null) {
 
@@ -153,8 +178,6 @@ public class ParseInputFolder {
 
 					if(!pageFound) {
 						m_pages.put(m_currentPage.getName(), m_currentPage);
-						
-						//m_currentPage = null;
 					}
 
 				}else {
@@ -168,10 +191,19 @@ public class ParseInputFolder {
 		}catch(IOException e) {
 			e.printStackTrace();
 		}
+		System.out.println("\t\t\t\tDONE");
 	}
 	
+	/*
+	 * parseInitializationFile
+	 * input: none
+	 * output: none
+	 * Description: parse init sentence for WebDSL, in order to read alredy
+	 * 				defined entities' instances
+	 */
 	void parseInitializationFile() {
-
+		
+		System.out.print("Parsing already defined instances...");
 		try {
 			BufferedReader br = new BufferedReader(new FileReader(m_inputFolder + "/" + INIT_FILE));
 			String line = br.readLine();
@@ -201,36 +233,36 @@ public class ParseInputFolder {
 		}catch(IOException e) {
 			e.printStackTrace();
 		}
+		System.out.println("\t\tDONE");
 	}
 
+	/*
+	 * processInverse
+	 * input: none
+	 * output: none
+	 * Description: define inverse properties when they are not directly set
+	 *              on entity definition. Set properties as non editable
+	 */
 	void processInverse() {
-	
-		for (Entity i : m_entidades.values()) {
-			for (Property p : i.getProperties().values()) {
-				String eInverse = p.getEinverse();
-				if (eInverse != null) {
-					for (Instance ins : i.getInstances().values()) {
-						if (ins.hasValue(p.getName())) {
-							for(Instance invIns : m_entidades.get(eInverse).getInstances().values()) {
-								if (invIns.getName().equals(ins.getValue(p))){
-									invIns.addValue(
-											((m_entidades.get(eInverse)).getProperties()).get(p.getPinverse()), ins.getName());
-								}
-							}
-						}else {
-							for (Instance invIns : m_entidades.get(eInverse).getInstances().values()) {
-								if (invIns.hasValue(p.getPinverse())){
-									ins.addValue(p, invIns.getName());
-								}
-							}
-						}
-					}
+		
+		for (Entity e : m_entidades.values()) {
+			for (Property p : e.getProperties().values()) {
+				if (p.getEinverse() != null) {
+					m_entidades.get(p.getEinverse()).getProperties().get(p.getPinverse()).setEditable(false);
+					m_entidades.get(p.getEinverse()).getProperties().get(p.getPinverse()).setEinverse(e.getName());
+					m_entidades.get(p.getEinverse()).getProperties().get(p.getPinverse()).setPinverse(p.getName());
 				}
 			}
-		}	
+		}
 	}
-	
-	
+
+	/*
+	 * parseProperty
+	 * input: line (String) in which a property is maybe included
+	 * output: none
+	 * Description: use regex to check if a property is defined in the line
+	 *              and add it to the current entity.
+	 */
 	private void parseProperty(String line) {
 
 		Matcher matcher = m_parsePatterns.get(REGEX_DATA_PROPERTY).matcher(line);
@@ -241,6 +273,14 @@ public class ParseInputFolder {
 		}
 	}
 
+	/*
+	 * parseEntity
+	 * input: line (String) in which a entity is maybe included
+	 * output: none
+	 * Description: use regex to check if a entity begin is defined in the line.
+	 *              If it is, create a new entity and set it
+	 *              as the current one to add properties later.
+	 */
 	private boolean parseEntity(String line) {
 
 		Matcher matcher = m_parsePatterns.get(REGEX_DATA_INICIO_ENTIDAD).matcher(line);
@@ -254,6 +294,13 @@ public class ParseInputFolder {
 		return false;
 	}
 
+	/*
+	 * parseEndEntity
+	 * input : line (String) in which the end of the current entity is maybe defined.
+	 * output: Boolean indicated if the entity end is not reached yet.
+	 * Description: use regex to check if the entity end is reached. 
+	 *              If it is, add entity to list of entities and remove current entity content.
+	 */
 	private boolean parseEndEntity(String line) {
 		Matcher matcher = m_parsePatterns.get(REGEX_DATA_FIN_ENTIDAD).matcher(line);
 
@@ -264,11 +311,14 @@ public class ParseInputFolder {
 		}
 		return true;
 	}
+
 	
-	public HashMap<String, Page> getPages(){
-		return this.m_pages;
-	}
-	
+	/*
+	 * parseCrud
+	 * input: line (String) in which sentence CRUD is found.
+	 * output: none
+	 * Description: use regex to check if CRUD sentence is defined for any entity.
+	 */
 	private void parseCrud(String line) {
 
 		Matcher matcher = m_parsePatterns.get(REGEX_CRUD).matcher(line);
@@ -276,17 +326,16 @@ public class ParseInputFolder {
 		if(matcher.find()) {
 			String crudPage = matcher.group(1);
 			m_entidades.get(crudPage).setCrud(true);		
-
-			/*
-			m_pages.put("create" + crudPage, null); //create
-			m_pages.put("manage" + crudPage, null); //manage
-			m_pages.put("view" + crudPage, null); //edit
-			m_pages.put(crudPage.toLowerCase(), null); //view
-			*/
 		}
 
 	}
 
+	/*
+	 * parseInitPage
+	 * input: line (String) in which the root page init is maybe defined.
+	 * output: Boolean indicating if root page is found.
+	 * Description: use regex expresion to check if the line contains the initilization of root page. 
+	 */
 	private boolean parseInitPage(String line) {
 
 		Matcher matcher = m_parsePatterns.get(REGEX_ROOT_PAGE).matcher(line);
@@ -298,6 +347,13 @@ public class ParseInputFolder {
 		return false;
 	}
 
+	/*
+	 * parseElement
+	 * input: line (String) in which an element is maybe included
+	 * output: none
+	 * Description: Parse different elements in root page to know their contents.
+	 * 				Elements could be a navigation link or print line.
+	 */
 	private void parseElement(String line) {
 
 		//Parse navigate
@@ -307,10 +363,11 @@ public class ParseInputFolder {
 			PageNavigate n = new PageNavigate();
 			n.setPage(matcher.group(1));
 			//Split the arguments
-			if (matcher.group(2) !=null) {
+			if (matcher.group(2) !=null && matcher.group(2).length() !=0) {
 				String[] arguments = matcher.group(2).split("\\s*,\\s*");	
-				for (int i = 0; i<arguments.length; i++)
+				for (int i = 0; i<arguments.length; i++) {
 					addArgumentToNavigate(arguments[i], n);
+				}
 			}
 			n.setText(matcher.group(4));
 
@@ -350,6 +407,12 @@ public class ParseInputFolder {
 		}
 	}
 
+	/*
+	 * parseEndPage
+	 * input: line (String) in which the root page end is maybe defined.
+	 * output: Boolean indicating if root page end is not found yet.
+	 * Description: use regex expresion to check if the line contains the end of root page. 
+	 */
 	public boolean parseEndPage(String line) {
 		//Parse endPage
 		Matcher matcher = m_parsePatterns.get(REGEX_END_PAGE).matcher(line);
@@ -360,6 +423,12 @@ public class ParseInputFolder {
 		}
 	}
 
+	/*
+	 * parseInit
+	 * input: line (String) in which the 'init' sentence is maybe defined.
+	 * output: Boolean indicating if 'init' is found.
+	 * Description: use regex expresion to check if the begin of 'init' sentence. 
+	 */
 	public boolean parseInit(String line) {
 		
 		Matcher matcher = m_parsePatterns.get(REGEX_INIT_BEGIN).matcher(line);
@@ -371,6 +440,12 @@ public class ParseInputFolder {
 		}
 	}
 	
+	/*
+	 * parseVar
+	 * input: line (String) in which and instance is maybe defined.
+	 * output: Boolean indicating if instance is found.
+	 * Description: use regex expresion to check if a new instance definition if found. 
+	 */
 	public boolean parseVar(String line) {
 		Matcher matcher = m_parsePatterns.get(REGEX_INIT_VAR_BEGIN).matcher(line);
 		if(matcher.find()) {
@@ -381,6 +456,12 @@ public class ParseInputFolder {
 		return false;
 	}
 
+	/*
+	 * parseAssign
+	 * input: line (String) in which an property instance is maybe defined
+	 * output: none.
+	 * Description: use regex expresion to check if any property of an entity is assigned to a value. 
+	 */
 	public void parseAssign(String line) {
 
 		Matcher matcher = m_parsePatterns.get(REGEX_INIT_ASSIGN).matcher(line);
@@ -390,6 +471,13 @@ public class ParseInputFolder {
 		}
 	}
 	
+	/*
+	 * addArgumentToNavigate
+	 * input: argument (String) containing the WebDSL argument for a navigation link
+	 *        p (PageNavigate) containing the navigation link in which the argument is added
+	 * output: none
+	 * Description: convert the page argument from WebDSL format to an instance name 
+	 */
 	private void addArgumentToNavigate(String argument, PageNavigate p) {
 		
 		String arg = argument;
@@ -405,6 +493,13 @@ public class ParseInputFolder {
 		p.addArgument(arg);
 	}
 	
+	/*
+	 * parseEndVar
+	 * input: line (String) in which an instance is maybe ended
+	 * output: Boolean indicating if the instance has not finished yet.
+	 * Description: use regex expresion to check if an instance is already defined. 
+	 *              If so, add it the instances list.
+	 */
 	private boolean parseEndVar(String line) {
 		Matcher matcher = m_parsePatterns.get(REGEX_INIT_VAR_END).matcher(line);
 		if (matcher.find()) {
@@ -416,6 +511,12 @@ public class ParseInputFolder {
 		return true;
 	}
 
+	/*
+	 * createProperty
+	 * input: matcher(Matcher) in which property characteristics are included.
+	 * output: Property which has been created.
+	 * Description: assign matcher values to Property characteristics. 
+	 */
 	private Property createProperty(Matcher matcher) {
 
 		Property p = new Property();
@@ -435,6 +536,27 @@ public class ParseInputFolder {
 		return p;
 	}
 
+	/*
+	 * parseCssFile
+	 * input: none
+	 * output: none
+	 * Description: read css file of WebDSL and store its contents. 
+	 */
+	public void parseCssFile() {
+		try {
+			BufferedReader br = new BufferedReader(new FileReader(m_inputFolder + "/stylesheets/common_.css"));
+			String line = br.readLine();
+
+			while (line != null) {		
+				m_cssContent += line;
+				line = br.readLine();
+			}
+			br.close();
+		}catch(IOException e) {
+			e.printStackTrace();
+		}	
+	}
+	
 	public String getAppName()
 	{
 		return m_appName;
@@ -448,6 +570,14 @@ public class ParseInputFolder {
 		return this.m_entidades;
 	}
 
+	public HashMap<String, Page> getPages(){
+		return this.m_pages;
+	}
+	
+	public String getCss() {
+		return this.m_cssContent;
+	}
+	
 	public void print() {
 		System.out.println("Nombre de la aplicacion: " + m_appName);
 

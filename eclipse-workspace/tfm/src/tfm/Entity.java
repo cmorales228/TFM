@@ -1,18 +1,17 @@
 package tfm;
 
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 
 public class Entity {
 
 	private String m_name;
-	private HashMap<String, Property> m_properties;
+	private LinkedHashMap<String, Property> m_properties;
 	private boolean m_crud;
 	private LinkedHashMap<String, Instance> m_instances;
 	
 	public Entity (String name) {
 		m_name = name;
-		m_properties = new HashMap<String, Property>();
+		m_properties = new LinkedHashMap<String, Property>();
 		m_crud = false;
 		m_instances = new LinkedHashMap<String, Instance>();
 	}
@@ -33,7 +32,7 @@ public class Entity {
 		m_instances.put(i.getName(), i);
 	}
 	
-	public HashMap<String, Property> getProperties() {
+	public LinkedHashMap<String, Property> getProperties() {
 		return this.m_properties;
 	}	
 	
@@ -45,7 +44,7 @@ public class Entity {
 		return this.m_crud;
 	}
 	
-	public HashMap<String, Instance> getInstances(){
+	public LinkedHashMap<String, Instance> getInstances(){
 		return this.m_instances;
 	}
 }

@@ -3,6 +3,7 @@ package tfm;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.io.Writer;
 import java.util.HashMap;
@@ -18,12 +19,14 @@ public class GenerateOutput {
 
 	private Configuration m_cfg;
 	private String m_outputFolder;
-	private HashMap<String, Object> m_javaScript;
+	private ParseInputFolder m_inputData;
+	private String m_appName;
 	
-	public GenerateOutput(String outputFolder) {
+	public GenerateOutput(String outputFolder, ParseInputFolder inputData) {
 		
 		m_outputFolder = outputFolder;
-		m_javaScript = new HashMap<String, Object>();
+		m_inputData = inputData;
+		m_appName = inputData.getAppName();
 		
 		try {
 			
@@ -36,187 +39,294 @@ public class GenerateOutput {
 		}
 	}
 	
-	public void generateOutputConfig(String appName) {
-		try {
+	/*
+	 * generateOuptutConfig
+	 * input: none
+	 * output: none
+	 * Description: generate configuration file for Apache Cordova 
+	 */
+	public void generateOutputConfig() {
 		
-			Map<String, Object> map = new HashMap<>();
-			map.put("appName", appName);
-			m_javaScript.put("appName", appName);
+		System.out.print("\nGenerating configuration for Apache Cordova...");
 		
-			Template template = m_cfg.getTemplate("config.ftl");
-		
-			Writer file = new FileWriter (new File(m_outputFolder + "/config.xml"));
-			template.process(map, file);
+		Map<String, Object> map = new HashMap<>();
+		map.put("appName", m_appName);
 
-		}catch(TemplateException t) {
-			t.printStackTrace();
-		}
-		catch(IOException e) {
-			e.printStackTrace();
-		}
+		processTemplateToFile("config.ftl", map, m_outputFolder + "/config.xml");
+		System.out.println("\tDONE");
 	}
 	
-	public void generateRootFile(Page rootPage, String appName) {
+	/*
+	 * generateRootFile
+	 * input: none
+	 * output: none
+	 * Description: generate root page for Apache Cordova with input data
+	 */
+	public void generateRootFile() {
+		
+		System.out.print("Generating root page...");
 
-		try {
-			Map<String, Object> map = new HashMap<>();
-			Template template = m_cfg.getTemplate("page.ftl");
+		Page rootPage = m_inputData.getPages().get(m_appName);
+			
+		Map<String, Object> map = new HashMap<>();
 	
-			map.put("pageId", "root");
-			map.put("body", generateBodyPage(rootPage));
-
-			Writer file = new FileWriter (new File(m_outputFolder + "/www/" + appName + ".html"));
-			template.process(map, file);
-	
-		}catch(TemplateException t) {
-			t.printStackTrace();
-		}
-		catch(IOException e) {
-			e.printStackTrace();
-		}
+		map.put("pageId", "root");
+		map.put("body", generateBodyPage(rootPage));
+		map.put("database", generateIndexedDB());
+		map.put("appName", m_appName);
+		
+		processTemplateToFile("page.ftl", map, m_outputFolder + "/www/" + m_appName + ".html");
+		
+		System.out.println("\t\t\t\tDONE");
 	}
 	
-	public void generateDataFile(HashMap<String, Entity> entities, HashMap<String, Instance> instances) {
-		
-		Map <String, Object> map = new HashMap<>();	
-		
-		try {
-			Template template;
+
+	/*
+	 * generatePages
+	 * input: none
+	 * output: none
+	 * Description: generate CRUD pages for each defined entity 
+	 */
+	public void generatePages() {
 			
-			LinkedList<String> objects= new LinkedList<String>();
-			for(Entity ent: entities.values()) {
-			
-				LinkedList<String> data = new LinkedList<String>();
-				for (String instName : ent.getInstances().keySet()) {
-					template = m_cfg.getTemplate("createData.ftl");
-					map.put("nameInstance", instName);
-					map.put("properties", ent.getInstances().get(instName).getValues());
-					Writer writer = new StringWriter();
-					template.process(map, writer);
-					data.add(writer.toString());
-				}
-			
-				map.put("entity", ent.getName());
-				map.put("properties", ent.getProperties().keySet());
-				map.put("data", data);
-				template = m_cfg.getTemplate("createStores.ftl");
-				Writer writer = new StringWriter();
-				template.process(map, writer);
-				objects.add(writer.toString());
-			}
-			
-			m_javaScript.put("objects", objects);
-			
-		}catch(TemplateException t) {
-			t.printStackTrace();
-		}catch(IOException e) {
-			e.printStackTrace();
-		}
-		
-	}
-	
-	public void generatePages(HashMap <String, Page> inputPages, HashMap <String, Entity> inputEntities) {
-		
-		String functions = "";
-		//TODO: generar paginas 'normales'
-		
+		System.out.print("Generating crud pages...");
 		//Generate CRUD
-		for(Entity ent: inputEntities.values()){
+		for(Entity ent: m_inputData.getEntities().values()){
 			if (ent.getCrud()) {
-				generateView(ent);
-				//generateCreate(e);
-				//generateManage(e);
-				//generateEdit(e);
-				try {
-				HashMap <String, Object> map = new HashMap<String, Object>();
-				Template template = m_cfg.getTemplate("jsCrud.ftl");
-				map.put("entity", Character.toUpperCase(ent.getName().charAt(0)) + ent.getName().substring(1));
-				Writer writer = new StringWriter();
-				template.process(map, writer);
-				functions = functions + writer;
-				}catch(TemplateException t) {
-					t.printStackTrace();
-				}catch(IOException e) {
-					e.printStackTrace();
+				
+				//Map <String, Object> map = new HashMap<>();
+				Map <String, Object> map = generateMap(ent);
+				
+				//GenerateView
+				processTemplateToFile("viewEntity.ftl", map, m_outputFolder + "/www/" + ent.getName().toLowerCase() + ".html");	
+			
+				//Generate Create
+				processTemplateToFile("createEntity.ftl", map, m_outputFolder + "/www/create" + ent.getName() + ".html");
+				
+				//GenerateEdit
+				processTemplateToFile("editEntity.ftl", map, m_outputFolder + "/www/edit" + ent.getName() + ".html");
+			
+				//GenerateManage
+				processTemplateToFile("manageEntity.ftl", map, m_outputFolder + "/www/manage" + ent.getName() + ".html");
+			}
+		}
+		System.out.println("\t\t\tDONE");
+	}
+	
+	/*
+	 * generateCssFile
+	 * input: none
+	 * output: none
+	 * Description: generate CSS file from input data 
+	 */
+	public void generateCssFile() {
+		
+		System.out.print("Generate Css File...");
+		FileWriter cssFile = null;
+		PrintWriter pw = null;
+		try {
+			cssFile = new FileWriter(m_outputFolder + "/www/css/index.css");
+		    pw = new PrintWriter(cssFile);
+		    pw.print(m_inputData.getCss());
+			cssFile.close();
+		 } catch (Exception e) {
+		    e.printStackTrace();
+		 } 
+		System.out.println("\t\t\t\tDONE");
+		
+	}
+	
+	/*
+	 * generateMap
+	 * input: ent (Entity) for which CRUD pages will be created
+	 * output: Map<String, String> which contains all data for the output CRUD templates
+	 * Description: add all needed data to map from input data 
+	 */
+	private Map<String, Object> generateMap(Entity ent) {
+		
+		Map<String, Object> map = new HashMap<>();
+		map.put("entityName", ent.getName());
+		map.put("appName", m_appName);
+		
+		//Add properties --> <PropertyName, IsList>
+		//Add secretProperties --> <PropertyName, IsSecret>
+		//Add inverseNonEditable --> <Inverse PropertyName, isEditable>
+		HashMap<String, Boolean> properties = new HashMap<>();
+		HashMap<String, Boolean> secretProperties = new HashMap<>();
+		HashMap<String, String> inverseEditable = new HashMap<>();
+		HashMap<String, String> inverseNonEditable = new HashMap<>();
+		for (Property p : ent.getProperties().values()) {
+			
+			if(p.getEditable()) {
+				properties.put(p.getName(), p.isSetOrList());
+				secretProperties.put(p.getName(), p.getType().equals("Secret"));
+				if (p.getEinverse()!=null && !m_inputData.getEntities().get(p.getEinverse()).getProperties().get(p.getPinverse()).isSetOrList()){
+					inverseEditable.put(p.getEinverse(), p.getPinverse());
+				}
+			}else if(p.getEinverse()!=null){
+				inverseNonEditable.put(p.getEinverse(), p.getPinverse());
+			}
+		}
+		System.out.println("Editable for " + ent.getName()+ ": " + properties);
+		map.put("properties", properties);
+		map.put("secretProperties", secretProperties);
+		map.put("inverseEditable", inverseEditable);
+		map.put("inverseNonEditable", inverseNonEditable);
+		
+		HashMap<String, String> linkEntitiesOrNull = new HashMap<>();
+		HashMap<String, String> linkEntities = new HashMap<>();
+		for (Property p : ent.getProperties().values()) {
+			linkEntities.put(p.getName(), p.getType());
+			if (m_inputData.getEntities().keySet().contains(p.getType())) {
+				linkEntitiesOrNull.put(p.getName(), p.getType());
+			}
+			else {
+				linkEntitiesOrNull.put(p.getName(), null);
+			}
+		}
+		map.put("linkEntitiesOrNull", linkEntitiesOrNull);
+		map.put("linkEntities", linkEntities);
+		
+		//CRUD
+		//propToDelete
+		HashMap<String, Boolean> crudEntities = new HashMap<>();
+		HashMap<String, String> propToDelete = new HashMap<>();
+		for (Entity e : m_inputData.getEntities().values())
+		{
+			crudEntities.put(e.getName(), e.getCrud());
+			for (Property p : e.getProperties().values()) {
+				if (p.getType().equals(ent.getName())) {
+					propToDelete.put(e.getName(), p.getName());
 				}
 			}
 		}
+		map.put("crudEntities", crudEntities);
+		map.put("propToDelete", propToDelete);
 		
-		m_javaScript.put("functions", functions);
-	}
-	
-	public void generateView(Entity ent) {
-		Map <String, Object> map = new HashMap<>();
-		
-		try {
-			Template template = m_cfg.getTemplate("viewEntity.ftl");
-			map.put("entityName", ent.getName());
-			map.put("properties", ent.getProperties().keySet());
-			Writer writer = new FileWriter (new File(m_outputFolder + "/www/" + ent.getName().toLowerCase() + ".html"));
-			template.process(map, writer);
+		map.put("tableCreate", generateCreateTable(ent));
 			
-		}catch(TemplateException t) {
-			t.printStackTrace();
-		}catch(IOException e) {
-			e.printStackTrace();
-		}
+		return map;
 	}
 	
-	public void generateJavaScript() {
-		try {
-			Template template = m_cfg.getTemplate("jsIndex.ftl");
-			Writer writer = new FileWriter(new File(m_outputFolder + "/www/js/index.js"));
-			template.process(m_javaScript, writer);
-		}catch(TemplateException t) {
-			t.printStackTrace();
-		}catch (IOException e) {
-			e.printStackTrace();
-		}
-	}
-	
+	/*
+	 * generateBodyPage
+	 * input: page (Page) to be converted
+	 * output: String which contains the HTML body of the page
+	 * Description: get page elements and convert them to HTML elements. 
+	 */
 	private String generateBodyPage(Page page) {
 		
 		String body = "";
 		
-		try {
-			Map<String, Object> map = new HashMap<>();
-			Template template;
-			for(PageElement e: page.getElements()) {
-				
-				switch(e.getType()) {
-					case NAVIGATE:
-						template = m_cfg.getTemplate("navigate.ftl");
-						map.put("page", (PageNavigate)e);
-						map.put("arguments", ((PageNavigate)e).getArguments());
-						break;
-					case OUTPUT:
-						template = m_cfg.getTemplate("output.ftl");
-						map.put("outputElement", generateOutString((PageOutput)e));
-						break;
-					case FORM:
-						template = m_cfg.getTemplate("navigate.ftl");
-						break;
-					default:
-
-						template = m_cfg.getTemplate("navigate.ftl");
-						break;
-				}
-
-				Writer templateResult = new StringWriter();
-				template.process(map, templateResult); 
-				body = body + templateResult.toString();
-				map.clear();
-			
-			}
-		}catch (TemplateException t) {
-			t.printStackTrace();
-		}catch(IOException e) {
-			e.printStackTrace();
-		}
+		Map<String, Object> map = new HashMap<>();
+		String template;
 		
+		for(PageElement e: page.getElements()) {
+				
+			switch(e.getType()) {
+				case NAVIGATE:
+					template = "navigate.ftl";
+					map.put("page", (PageNavigate)e);
+					map.put("arguments", ((PageNavigate)e).getArguments());
+					break;
+				case OUTPUT:
+					template = "output.ftl";
+					map.put("outputElement", generateOutString((PageOutput)e));
+					break;
+				case FORM:
+					template = "navigate.ftl";
+					break;
+				default:
+					template = "navigate.ftl";
+					break;
+			}
+			body += processTemplateToString(template, map);
+			map.clear();
+		
+		}
+
 		return body;
 	}
 	
+	/*
+	 * generateIndexedDB
+	 * input: none
+	 * output: String which contains the creation, initialization and instance inclusion of indexedDB
+	 * Description: use input data to create indexed DB, initialize it and include already created instances 
+	 */
+	public String generateIndexedDB() {
+		
+		Map <String, Object> map = new HashMap<>();	
+		
+		LinkedList<String> objects= new LinkedList<String>();
+			
+		for(Entity ent: m_inputData.getEntities().values()) {
+		
+			LinkedList<String> data = new LinkedList<String>();
+			
+			for (String instName : ent.getInstances().keySet()) {
+				map.put("nameInstance", instName);
+				map.put("properties", ent.getInstances().get(instName).getValues());
+				
+				//Add secretProperties --> <PropertyName, IsSecret>
+				HashMap<String, Boolean> secretProperties = new HashMap<>();
+				for (Property p : ent.getProperties().values()) {
+					secretProperties.put(p.getName(), p.getType().equals("Secret"));
+				}
+				map.put("secretProperties", secretProperties);
+				
+				data.add(processTemplateToString("createData.ftl", map));
+			}
+			
+			map.put("entity", ent.getName());
+			map.put("data", data);
+			
+			objects.add(processTemplateToString("createStores.ftl", map));
+		}
+		
+		map.put("objects", objects);
+		map.put("appName", m_appName);
+		
+		return processTemplateToString("jsIndexedDB.ftl", map);
+	}
+	
+	/*
+	 * generateCreateTable
+	 * input: ent (Entity) for which the form is created
+	 * output: String with the generated form for HTML
+	 * Description: according to entity properties, create a form to create and edit objects. 
+	 */
+	private String generateCreateTable(Entity ent) {
+		Map<String, Object> map = new HashMap<>();
+		String table = "";
+
+		for (Property p : ent.getProperties().values()) {
+			if(p.getEditable()) {
+				map.put("entityName", ent.getName());
+				map.put("propName", p.getName());
+			
+				if (m_inputData.getEntities().keySet().contains(p.getType())) {
+					map.put("isLinkEntity", true);
+				}
+				if (p.getType().equals("Bool")) {
+					map.put("isBoolean", true);
+				}else if (p.getType().equals("Secret")) {
+					map.put("isSecret", true);
+				}
+				map.put("isSetorList",p.isSetOrList());
+				table += processTemplateToString("createTable.ftl", map) + "\n";
+				map.clear();
+			}
+		}
+		return table;
+	}
+	
+	/*
+	 * generateOutString
+	 * input: o (PageOutput) to be converted
+	 * output: String in which the output is converted to HTML
+	 * Description: get output strings from PageOutput and convert it to HTML. 
+	 */
 	private String generateOutString(PageOutput o) {
 		
 		String outString = "";
@@ -232,5 +342,47 @@ public class GenerateOutput {
 		return outString;
 	}
 	
+	/*
+	 * processTemplateToFile
+	 * input: tName (String) indicates the template Name
+	 *        map (Map<String, Object>) with the data neede for the template.
+	 *        file (String) indicate the file name in the the template output will be set.
+	 * output: none
+	 * Description: process template with map data. Set the output to a file. 
+	 */
+	private void processTemplateToFile(String tName, Map<String, Object> map, String file) {
+		try {
+			
+			Template template = m_cfg.getTemplate(tName);
+			Writer writer = new FileWriter (new File(file));
+			template.process(map, writer);
+			
+		}catch(TemplateException t) {
+			t.printStackTrace();
+		}catch(IOException e) {
+			e.printStackTrace();
+		}
+	}
 	
+	/*
+	 * processTemplateToFile
+	 * input: tName (String) indicates the template Name
+	 *        map (Map<String, Object>) with the data neede for the template.
+	 * output: String with the content of the processed template
+	 * Description: process template with map data.  
+	 */
+	private String processTemplateToString(String tName, Map<String, Object> map) {
+		Writer writer = new StringWriter();
+		
+		try {
+			Template template = m_cfg.getTemplate(tName);
+			template.process(map, writer);
+			
+		}catch (TemplateException t) {
+			t.printStackTrace();
+		}catch(IOException e) {
+			e.printStackTrace();
+		}
+		return writer.toString();
+	}	
 }
