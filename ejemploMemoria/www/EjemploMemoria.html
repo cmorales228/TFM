@@ -1,10 +1,118 @@
 <!DOCTYPE html>
 <html> 
-	<body id="root">
-			<a href="#" id="asignatura" class="navigate" onclick="setCurrentVar('asig2')">viewAsignatura</a>  
-		<a href="#" id="manageAsignatura" class="navigate" onclick="setCurrentVar('')">manage asignatura</a>  
-		<a href="#" id="editAsignatura" class="navigate" onclick="setCurrentVar('asig2')">edit asignatura</a>  
-		<a href="#" id="createAsignatura" class="navigate" onclick="setCurrentVar('')">create asignatura</a> 	
+    <meta charset="UTF-8">
+    <title></title>
+    <head>
+    	<script type="text/javascript">
+
+		var indexedDB = window.indexedDB || window.mozIndexedDB || window.webkitIndexedDB || window.msIndexedDB;
+
+        function startDB() {
+                        
+            var req = indexedDB.open("EjemploMemoria", 1);
+
+			req.onupgradeneeded = function(evt){
+				console.log("openDB.onupgradedneeded");
+				var db = evt.target.result;
+		
+			db.onerror = function(){
+				console.log(database.errorCode);	
+			};
+	
+			var transaction = evt.target.transaction;
+				
+			//Create Asignatura
+			var storeAsignatura = db.createObjectStore('Asignatura', {keyPath: 'instanceName'});
+				
+			storeAsignatura.createIndex('coordinador', 'coordinador', {unique : false}); 
+			storeAsignatura.createIndex('code', 'code', {unique : false}); 
+			storeAsignatura.createIndex('name', 'name', {unique : false}); 
+		
+			var Asignatura = transaction.objectStore('Asignatura');
+			var AsignaturaData = [  
+    				{ instanceName : "asig1", name:"Asignatura1"},  
+    				{ instanceName : "asig2", name:"Asignatura2"}];
+        
+    		AsignaturaData.forEach(function (Asignatura) {
+         		storeAsignatura.add(Asignatura);
+        	});
+    		//End Asignatura
+    
+				
+			//Create Profesor
+			var storeProfesor = db.createObjectStore('Profesor', {keyPath: 'instanceName'});
+				
+			storeProfesor.createIndex('password', 'password', {unique : false}); 
+			storeProfesor.createIndex('asignatura', 'asignatura', {unique : false}); 
+			storeProfesor.createIndex('alumnos', 'alumnos', {unique : false}); 
+			storeProfesor.createIndex('name', 'name', {unique : false}); 
+		
+			var Profesor = transaction.objectStore('Profesor');
+			var ProfesorData = [  
+    				{ instanceName : "prof1", password:encryptPass(Profesor1), 
+    				asignatura:"asig1", 
+    				name:"Profesor1"},  
+    				{ instanceName : "prof2", password:encryptPass(Profesor2), 
+    				asignatura:"asig2", 
+    				name:"Profesor2"}];
+        
+    		ProfesorData.forEach(function (Profesor) {
+         		storeProfesor.add(Profesor);
+        	});
+    		//End Profesor
+    
+				
+			//Create Alumno
+			var storeAlumno = db.createObjectStore('Alumno', {keyPath: 'instanceName'});
+				
+			storeAlumno.createIndex('name', 'name', {unique : false}); 
+			storeAlumno.createIndex('asignaturas', 'asignaturas', {unique : false}); 
+			storeAlumno.createIndex('tutor', 'tutor', {unique : false}); 
+		
+			var Alumno = transaction.objectStore('Alumno');
+			var AlumnoData = [  
+    				{ instanceName : "alumn1", name:"Alumno1", 
+    				asignaturas:"asig1, asig2", 
+    				tutor:"prof1"},  
+    				{ instanceName : "alumn2", name:"Alumno2", 
+    				asignaturas:"asig1, asig2", 
+    				tutor:"prof1"}];
+        
+    		AlumnoData.forEach(function (Alumno) {
+         		storeAlumno.add(Alumno);
+        	});
+    		//End Alumno
+    
+
+
+			};
+
+			req.onsuccess=function(evt){
+				datastore=evt.target.result;
+				console.log("DB opened!");
+			};
+	
+			req.onerror = function(evt){
+				console.error("openDB:", evt.target.errorCode);
+			};
+		}
+		
+		function encryptPass(value){
+		
+			var h = 0, l = value.length, i = 0;
+  			if ( l > 0 )
+    			while (i < l)
+      				h = (h << 5) - h + value.charCodeAt(i++) | 0;
+			return h.toString();
+		}
+	</script>
+    </head>
+	<body id="root" onload="startDB();"><h3>
+				<a href='alumno.html?val=alumn2' id="alumno" class="navigate">viewAlumno</a> 
+		<a href='manageAlumno.html' id="manageAlumno" class="navigate">manage alumno</a> 
+		<a href='editAlumno.html?val=alumn2' id="editAlumno" class="navigate">edit alumno</a> 
+		<a href='createAlumno.html' id="createAlumno" class="navigate">create alumno</a> 
+
+	</h3>
 	</body>
-	<script type="text/javascript" src="js/index.js"></script>
 </html>

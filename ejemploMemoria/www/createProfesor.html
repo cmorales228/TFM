@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html" charset="utf-8">
+	<script type="text/javascript">
+
+	var indexedDB = window.indexedDB || window.mozIndexedDB || window.webkitIndexedDB || window.msIndexedDB;
+
+    function getData() {
+                       
+    	var req = indexedDB.open("EjemploMemoria", 1);
+
+		req.onupgradeneeded = function(evt){
+			console.log("ONUPGRADEDNEEDED: EjemploMemoria.readProfesor: YOU MUST NOT SEE THIS MESSAGE");
+		};
+			
+		req.onerror = function(evt){
+			console.error("openDB:", evt.target.errorCode);
+		};
+
+		req.onsuccess=function(evt){
+			
+			var active = req.result;
+			
+			
+			var dataProfesor = active.transaction(['Profesor'], 'readonly');
+			var ProfesorStore = dataProfesor.objectStore("Profesor");
+			var requestProfesor = ProfesorStore.getAll();
+			requestProfesor.onerror = function (event) {
+				console.log("Error while gettting data form Profesor");
+			}
+			requestProfesor.onsuccess = function(event){
+				var elements = [];
+				if (!("inverseAsignaturaCoordinador" in sessionStorage)){
+					requestProfesor.result.forEach(function(objectProfesor){
+						if(objectProfesor.asignatura.length>0){elements.push(objectProfesor.asignatura)};
+					});
+					if (elements.length>0){
+						sessionStorage.setItem("inverseAsignaturaCoordinador", elements.join(", "));
+					}
+				}
+			}
+			
+			if ("selectedProfesorPassword" in sessionStorage){
+				document.querySelector("#inputpassword").value = sessionStorage.getItem("selectedProfesorPassword");
+			} 
+			
+  			// Profesor has a property of type Asignatura, so request for it
+  			var linkDataAsignatura = active.transaction(['Asignatura'], 'readonly');
+           	var linkAsignaturaStore = linkDataAsignatura.objectStore("Asignatura");
+	          	var requestLinkAsignatura = linkAsignaturaStore.getAll();
+    	   	requestLinkAsignatura.onerror = function(event) {
+        	  		console.log("error while getting data from Asignatura");
+  				// Handle errors!
+			};
+			requestLinkAsignatura.onsuccess = function(event) {
+				selectInput = "";
+				selectInput += "<option selected value></option>";
+				requestLinkAsignatura.result.forEach(function (valueLinkAsignatura) {	
+					sessionStorage.setItem( valueLinkAsignatura.instanceName, valueLinkAsignatura.name);
+					if(!("ProfesorAsignatura" in sessionStorage) || (sessionStorage.getItem("ProfesorAsignatura")).split(", ").indexOf(valueLinkAsignatura.instanceName)<0){
+						if(("inverseAsignaturaCoordinador" in sessionStorage) && sessionStorage.getItem("inverseAsignaturaCoordinador").split(", ").indexOf(valueLinkAsignatura.instanceName)<0){	
+						selectInput += "<option value=" + valueLinkAsignatura.instanceName;
+						if (("selectedProfesorAsignatura" in sessionStorage) && sessionStorage.getItem("selectedProfesorAsignatura") == valueLinkAsignatura.instanceName)
+						{selectInput += " selected";}
+						selectInput +=">" + valueLinkAsignatura.name + "</option>\n";
+					}	
+					}
+				   
+				});
+				
+				document.querySelector("#inputasignatura").innerHTML = selectInput;
+			};
+			
+  			// Profesor has a property of type Alumno, so request for it
+  			var linkDataAlumno = active.transaction(['Alumno'], 'readonly');
+           	var linkAlumnoStore = linkDataAlumno.objectStore("Alumno");
+	          	var requestLinkAlumno = linkAlumnoStore.getAll();
+    	   	requestLinkAlumno.onerror = function(event) {
+        	  		console.log("error while getting data from Alumno");
+  				// Handle errors!
+			};
+			requestLinkAlumno.onsuccess = function(event) {
+				selectInput = "";
+				selectInput += "<option selected value></option>";
+				requestLinkAlumno.result.forEach(function (valueLinkAlumno) {	
+					sessionStorage.setItem( valueLinkAlumno.instanceName, valueLinkAlumno.name);
+					if(!("ProfesorAlumnos" in sessionStorage) || (sessionStorage.getItem("ProfesorAlumnos")).split(", ").indexOf(valueLinkAlumno.instanceName)<0){
+						selectInput += "<option value=" + valueLinkAlumno.instanceName;
+						if (("selectedProfesorAlumnos" in sessionStorage) && sessionStorage.getItem("selectedProfesorAlumnos") == valueLinkAlumno.instanceName)
+						{selectInput += " selected";}
+						selectInput +=">" + valueLinkAlumno.name + "</option>\n";
+						
+					}
+				   
+				});
+				 
+			};
+			
+			if ("selectedProfesorName" in sessionStorage){
+				document.querySelector("#inputname").value = sessionStorage.getItem("selectedProfesorName");
+			} 
+			
+		};           	
+	};
+	
+	function addProfesorProperty(){
+		sessionStorage.setItem("selectedProfesorPassword", document.querySelector("#inputpassword").value);
+		sessionStorage.setItem("selectedProfesorAsignatura", document.querySelector("#inputasignatura").value);
+		sessionStorage.setItem("selectedProfesorName", document.querySelector("#inputname").value);
+	}
+	
+	function removeProfesorProperty(item){
+		
+		sessionStorage.setItem("selectedProfesorPassword", document.querySelector("#inputpassword").value);
+		sessionStorage.setItem("selectedProfesorAsignatura", document.querySelector("#inputasignatura").value);
+		sessionStorage.setItem("selectedProfesorName", document.querySelector("#inputname").value);
+	}
+	
+	
+	function createProfesor() {
+		var req = indexedDB.open("EjemploMemoria", 1);
+
+		req.onupgradeneeded = function(evt){
+			console.log("ONUPGRADEDNEEDED: EjemploMemoria.readProfesor: YOU MUST NOT SEE THIS MESSAGE");
+		};
+			
+		req.onerror = function(evt){
+			console.error("openDB:", evt.target.errorCode);
+		};
+
+		req.onsuccess=function(evt){
+		
+		var newInstanceName = "Profesor" + (new Date()).getTime();
+		var newData = {instanceName: newInstanceName};
+		
+		
+		if("ProfesorPassword" in sessionStorage){
+			newData['password'] = sessionStorage.getItem("ProfesorPassword");
+			sessionStorage.removeItem("ProfesorPassword");
+		}else{
+			var s = document.querySelector("#inputpassword").value;
+			var h = 0, l = s.length, i = 0;
+  			if ( l > 0 )
+    			while (i < l)
+      				h = (h << 5) - h + s.charCodeAt(i++) | 0;
+			newData['password'] = h.toString();
+		}
+		
+		if("ProfesorAsignatura" in sessionStorage){
+			newData['asignatura'] = sessionStorage.getItem("ProfesorAsignatura");
+			sessionStorage.removeItem("ProfesorAsignatura");
+		}else{
+			newData['asignatura'] = document.querySelector("#inputasignatura").value;
+		}
+		
+		if("ProfesorName" in sessionStorage){
+			newData['name'] = sessionStorage.getItem("ProfesorName");
+			sessionStorage.removeItem("ProfesorName");
+		}else{
+			newData['name'] = document.querySelector("#inputname").value;
+		}
+			
+		var active = req.result;
+        var data = active.transaction(['Profesor'], 'readwrite');
+        var objectStore = data.objectStore("Profesor");
+        objectStore.add(newData);
+            
+        sessionStorage.clear();
+        location.href = location.protocol + '//' + location.host + "/profesor.html?val=" + newInstanceName;
+          		
+       };
+	};
+	</script>
+</head>
+<body onload="getData();">
+	<h1 class="header section1" id=Profesor>Create Profesor</h1>
+	<form>
+	<fieldset>
+		<legend>Details</legend>
+		<table id="createProfesor">
+			<tr><td>Name: </td>
+			<td><input type="text" id="inputname"/></td>
+			</tr>				
+			<tr><td>Password: </td>
+			<td> <input type="password" id="inputpassword"/>
+			</td>
+			</tr>				
+			<tr><td>Asignatura: </td>
+			<td> <select name="inputasignatura" id="inputasignatura"></select>
+			</td>
+			</tr>				
+
+		</table>
+	</fieldset>
+	<button name="saveProfesor" onclick="createProfesor();">Save</button>
+	</form>
+</body>
+</html>

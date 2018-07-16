@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html" charset="utf-8">
+<script>
+
+	var indexedDB = window.indexedDB || window.mozIndexedDB || window.webkitIndexedDB || window.msIndexedDB;
+
+    function getData() {
+		
+		var urlLocation = location.protocol + "//" + location.host;
+		
+		document.querySelector("#createAlumno").href = urlLocation + "/createAlumno.html";
+                       
+    	var req = indexedDB.open("EjemploMemoria", 1);
+
+		req.onupgradeneeded = function(evt){
+			console.log("ONUPGRADEDNEEDED: EjemploMemoria.readAlumno: YOU MUST NOT SEE THIS MESSAGE");
+		};
+			
+		req.onerror = function(evt){
+			console.error("openDB:", evt.target.errorCode);
+		};
+
+		req.onsuccess=function(evt){
+		
+			var active = req.result;
+            var data = active.transaction(['Alumno'], 'readonly');
+            var objectStore = data.objectStore("Alumno");
+        	var allObjectsStore = objectStore.getAll();    
+        
+        	allObjectsStore.onerror = function(event) {
+           		console.log("error while getting " + requestValue + " from Alumno");
+  				// Handle errors!
+			};
+			allObjectsStore.onsuccess = function(event) {
+        		output = "";
+        		allObjectsStore.result.forEach(function (objectAlumno){
+        			output += "<p><a href='" + urlLocation + "/alumno.html?val=" + objectAlumno.instanceName + "'>" + objectAlumno.name +"</a> ";
+					output += "<a href='" + urlLocation + "/editalumno.html?val=" + objectAlumno.instanceName + "'>edit</a></p>";
+					output += "<button onclick='deleteData(\"" + objectAlumno.instanceName + "\");'>remove</button>\n";
+        		});
+        		document.querySelector("#manageAlumno").innerHTML = output;
+        	};		
+		};
+	};
+	
+	function deleteData(deleteEntityName){
+	
+		console.log("deletedata from Alumno with name " + deleteEntityName);
+		var req = indexedDB.open("EjemploMemoria", 1);
+
+		req.onupgradeneeded = function(evt){
+			console.log("ONUPGRADEDNEEDED: EjemploMemoria.readAlumno: YOU MUST NOT SEE THIS MESSAGE");
+		};
+			
+		req.onerror = function(evt){
+			console.error("openDB:", evt.target.errorCode);
+		};
+
+		req.onsuccess=function(evt){
+			var active = req.result;
+            var data = active.transaction(['Alumno'], 'readwrite');
+            var objectStore = data.objectStore("Alumno");
+            var request = objectStore.delete(deleteEntityName);
+            
+            request.onerror = function (evt){
+            	console.error("Error while removing " + deleteEntityName + " from database");
+            };
+            request.onsuccess = function (evt){
+            	var data = active.transaction(['Profesor'], 'readwrite');
+            	var objectStoreDel = data.objectStore("Profesor");
+            	var requestDel = objectStoreDel.getAll();
+            	requestDel.onerror = function (evt){
+            		console.error("Error while getting data from Profesor")
+            	};
+            	requestDel.onsuccess = function (evt){
+            		requestDel.result.forEach(function(resultProfesor){
+            			console.log("profesor: " + resultProfesor.instanceName);
+            			if(resultProfesor.alumnos && resultProfesor.alumnos.split(", ").includes(deleteEntityName)){
+            				
+            				var items = resultProfesor.alumnos.split(", ");
+							var itemPosition = items.indexOf(deleteEntityName);
+							items.splice(itemPosition, 1);
+							resultProfesor.alumnos = items.join(", ");
+							
+							var requestUpdate = objectStoreDel.put(resultProfesor);
+            			}
+            		});
+            	};
+            		
+            	console.log("Element " + deleteEntityName + " removed from Alumno");
+            	sessionStorage.clear();
+            	getData();
+            };
+		};
+	};
+	</script>
+</head>
+<body onload="getData();">
+	<h1 class="header section1" id=Alumno>Manage Alumno</h1>
+	<a id=createAlumno>create</a>
+	<p id="manageAlumno">
+	</p>
+</body>
+</html>

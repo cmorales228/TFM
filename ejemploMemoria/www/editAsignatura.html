@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html" charset="utf-8">
+	<script type="text/javascript">
+
+	var indexedDB = window.indexedDB || window.mozIndexedDB || window.webkitIndexedDB || window.msIndexedDB;
+
+    function getData() {
+                       
+    	var req = indexedDB.open("EjemploMemoria", 1);
+
+		req.onupgradeneeded = function(evt){
+			console.log("ONUPGRADEDNEEDED: EjemploMemoria.readAsignatura: YOU MUST NOT SEE THIS MESSAGE");
+		};
+			
+		req.onerror = function(evt){
+			console.error("openDB:", evt.target.errorCode);
+		};
+
+		req.onsuccess=function(evt){
+			
+			//Get argument from URL
+            var argURL = location.search.substr(1);
+            var instanceName = argURL.split("=")[1];
+            
+            if(!("currentInstanceAsignatura" in sessionStorage)){
+            	sessionStorage.setItem("currentInstanceAsignatura", instanceName);
+            }
+            else{
+            	instanceName = sessionStorage.getItem("currentInstanceAsignatura");
+            }
+            //Get data from DB	
+            var active = req.result;
+            var data = active.transaction(['Asignatura'], 'readonly');
+            var objectStore = data.objectStore("Asignatura");
+            
+            var requestObject = objectStore.get(instanceName);
+            
+            requestObject.onerror = function(event) {
+            	console.log("error while getting " + instanceName + " from Asignatura");
+  				// Handle errors!
+			};
+			requestObject.onsuccess = function(event) {
+  				// Do something with the request.result!
+			
+				var resultAsignatura = requestObject.result;
+				
+				document.querySelector("#editAsignatura").innerHTML = "Edit " + resultAsignatura.name;
+			
+
+				if(!("selectedAsignaturaCode" in sessionStorage)){
+					sessionStorage.setItem("selectedAsignaturaCode", requestObject.result.code);
+				}
+
+				if(!("selectedAsignaturaName" in sessionStorage)){
+					sessionStorage.setItem("selectedAsignaturaName", requestObject.result.name);
+				}
+			
+  				// Asignatura has a property of type Profesor, so request for it
+  				var linkDataProfesor = active.transaction(['Profesor'], 'readonly');
+            	var linkProfesorStore = linkDataProfesor.objectStore("Profesor");
+            	var requestLinkProfesor = linkProfesorStore.getAll();
+           		requestLinkProfesor.onerror = function(event) {
+            		console.log("error while getting " + requestValue + " from Profesor");
+  					// Handle errors!
+				};
+				requestLinkProfesor.onsuccess = function(event) {				
+					
+					selector ="";
+					var alreadySelected = "";
+					requestLinkProfesor.result.forEach(function(resultProfesor){
+						sessionStorage.setItem(resultProfesor.instanceName, resultProfesor.name);
+						if ("selectedAsignaturaCoordinador" in sessionStorage){
+							selector += "<option value=" + resultProfesor.instanceName;
+							if(resultProfesor.instanceName == sessionStorage.getItem("selectedAsignaturaCoordinador")){selector +=" selected";}
+							selector += ">" + resultProfesor.name + "</option>";
+						} else if (!("AsignaturaCoordinador" in sessionStorage) || sessionStorage.getItem("AsignaturaCoordinador").split(", ").indexOf(resultProfesor.instanceName)<0){
+							selector += "<option value=" + resultProfesor.instanceName;
+							if(resultAsignatura.coordinador == resultProfesor.instanceName){selector +=" selected";}
+							selector += ">" + resultProfesor.name + "</option>";
+						}
+					});
+					 					document.querySelector("#inputcode").value = sessionStorage.getItem("selectedAsignaturaCode");
+					document.querySelector("#inputname").value = sessionStorage.getItem("selectedAsignaturaName");
+					
+				};
+				
+				
+			};
+		};           	
+	};
+	
+	function addAsignaturaProperty(){
+		
+		sessionStorage.setItem("selectedAsignaturaCode", document.querySelector("#inputcode").value);
+		sessionStorage.setItem("selectedAsignaturaName", document.querySelector("#inputname").value);
+		window.history.back();
+		//location.href = location.protocol + '//' + location.host + "/asignatura.html?val=" + sessionStorage.getItem("currentInstanceAsignatura");
+	}
+	
+	function removeAsignaturaProperty(item){
+		
+		sessionStorage.setItem("selectedAsignaturaCode", document.querySelector("#inputcode").value);	
+		sessionStorage.setItem("selectedAsignaturaName", document.querySelector("#inputname").value);	
+	}
+
+	function getDataFromDB(db, ent){
+		
+		var data = db.transaction([ent], 'readwrite');
+		var objectStore = data.objectStore(ent);
+		var requestObject = objectStore.getAll();
+			requestObject.onerror = function (evt){
+				console.log("Error while getting " + ent + " from database");
+			};
+			requestObject.onsucess = function (evt){	
+				return requestObject.result;
+			};
+	};
+	
+	function updateAsignatura() {
+		var req = indexedDB.open("EjemploMemoria", 1);
+
+		req.onupgradeneeded = function(evt){
+			console.log("ONUPGRADEDNEEDED: EjemploMemoria.readAsignatura: YOU MUST NOT SEE THIS MESSAGE");
+		};
+			
+		req.onerror = function(evt){
+			console.error("openDB:", evt.target.errorCode);
+		};
+
+		req.onsuccess=function(evt){
+		//Get argument from URL
+            
+            var updateInstanceName = sessionStorage.getItem("currentInstanceAsignatura");
+           	var active = req.result;
+           	
+            //Get data from DB	
+           	var data = active.transaction(['Asignatura'], 'readwrite');
+           	var objectStore = data.objectStore("Asignatura");
+           	
+           	var requestObject = objectStore.get(updateInstanceName);
+           	
+           	requestObject.onerror = function(event) {
+           		console.log("error while getting " + instanceName + " from Asignatura");
+ 					// Handle errors!
+			};
+			requestObject.onsuccess = function(event) {     
+				
+				var resultObject = requestObject.result;
+				
+				if("AsignaturaCode" in sessionStorage){
+					resultObject.code = sessionStorage.getItem("AsignaturaCode");
+				}else{
+					resultObject.code = document.querySelector("#inputcode").value;
+				}
+				if("AsignaturaName" in sessionStorage){
+					resultObject.name = sessionStorage.getItem("AsignaturaName");
+				}else{
+					resultObject.name = document.querySelector("#inputname").value;
+				}
+				
+				var requestUpdate = objectStore.put(resultObject);
+   					requestUpdate.onerror = function(event) {
+     				// Do something with the error
+   				};
+   				requestUpdate.onsuccess = function(event) {
+   					sessionStorage.clear();
+   				
+     				location.href = location.protocol + '//' + location.host + "/asignatura.html?val=" + updateInstanceName;
+            
+     				// Success - the data is updated!
+     			};
+   			};	
+        };
+	};
+	</script>
+</head>
+<body onload="getData();">
+	<h1 class="header section1" id="editAsignatura"></h1>
+	<form>
+	<fieldset>
+		<legend>Details</legend>
+		<table id="editTableAsignatura">
+			<tr><td>Name: </td>
+			<td><input type="text" id="inputname"/></td>
+			</tr>				
+			<tr><td>Code: </td>
+			<td><input type="text" id="inputcode"/></td>
+			</tr>				
+
+		</table>
+	</fieldset>
+	<button name="update" onclick="updateAsignatura();">Update</button>
+	</form>
+</body>
+</html>
