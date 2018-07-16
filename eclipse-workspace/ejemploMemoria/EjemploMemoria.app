@@ -2,18 +2,20 @@ application EjemploMemoria
 
 imports data 
 imports initialization
+imports ac
 
 derive crud Asignatura
 derive crud Profesor
 derive crud Alumno
   
 page root(){ 
-	
- 	navigate asignatura((from Asignatura)[0]) {"viewAsignatura"}
+ 	navigate alumno((from Alumno)[0]) {"viewAlumno"}
     " "
-    navigate manageAsignatura() {"manage asignatura"}
+    navigate manageAlumno() {"manage alumno"}
     " "
-    navigate editAsignatura((from Asignatura)[0]) {"edit asignatura"}
+    navigate editAlumno((from Alumno)[0]) {"edit alumno"}
     " "
-    navigate createAsignatura() {"create asignatura"}
+    navigate createAlumno() {"create alumno"}
+    " "
+	authentication()
 }
