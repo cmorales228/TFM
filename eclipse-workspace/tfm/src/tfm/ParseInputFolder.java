@@ -291,13 +291,11 @@ public class ParseInputFolder {
 						matcher = m_parsePatterns.get(REGEX_AC_PAGES).matcher(line);
 						if (matcher.find()) {							
 							m_ac.addPointcutPage(currentPointcut, matcher.group(1));
-							System.out.println("Tengo una pagina " + matcher.group(1) + " en un pointcut " + currentPointcut);
 						}else {
 							
 							matcher = m_parsePatterns.get(REGEX_AC_END_POINTCUT).matcher(line);
 							if (matcher.find()) {
 								pointcutFlag = false;
-								System.out.println("Find de pointcut: " + currentPointcut);
 							}
 						}
 					}
@@ -306,10 +304,8 @@ public class ParseInputFolder {
 						if (matcher.find()) {
 							if (matcher.group(1).equals("page")) {
 								m_ac.addPageRule(matcher.group(2), matcher.group(3));
-								System.out.println("tengo una rule page: " + matcher.group(2));
 							}
 							else {
-								System.out.println("tengo un pointcut rule: " + matcher.group(2));
 								m_ac.addPointcutRule(matcher.group(2), matcher.group(3));
 							}	
 						}	
@@ -317,7 +313,6 @@ public class ParseInputFolder {
 						matcher = m_parsePatterns.get(REGEX_AC_POINTCUT).matcher(line);
 						if (matcher.find()) {
 							currentPointcut = matcher.group(1);
-							System.out.println("Estoy dentro del pointcut: " + currentPointcut);
 							pointcutFlag = true;
 						}
 						
