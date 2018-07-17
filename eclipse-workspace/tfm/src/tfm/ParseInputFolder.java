@@ -11,9 +11,10 @@ import java.util.LinkedHashMap;
 public class ParseInputFolder {
 
 	//WebDSL files name
-	private final String INI_FILE = "application.ini";
+	private final String INI_FILE  = "application.ini";
 	private final String DATA_FILE = "data.app";
 	private final String INIT_FILE = "initialization.app";
+	private final String AC_FILE   = "ac.app";
 
 	//Parse data file
 	private final Integer REGEX_DATA_INICIO_ENTIDAD =  0;
@@ -29,6 +30,13 @@ public class ParseInputFolder {
 	private final Integer REGEX_INIT_VAR_BEGIN      = 10;
 	private final Integer REGEX_INIT_ASSIGN         = 11;
 	private final Integer REGEX_INIT_VAR_END        = 12;
+	private final Integer REGEX_VAR_SECRET          = 13;
+	private final Integer REGEX_AC_PRINCIPAL        = 14;
+	private final Integer REGEX_AC_ACCESS           = 15;
+	private final Integer REGEX_AC_RULE             = 16;
+	private final Integer REGEX_AC_POINTCUT         = 17;
+	private final Integer REGEX_AC_PAGES            = 18;
+	private final Integer REGEX_AC_END_POINTCUT     = REGEX_END_PAGE;
 
 	private HashMap<Integer, Pattern> m_parsePatterns;
 	private Entity m_currentEntity;
@@ -40,6 +48,7 @@ public class ParseInputFolder {
 	private String m_cssContent;
 	private String m_inputFolder;
 	private String m_appName;
+	private AccessControl m_ac;
 
 	public ParseInputFolder(String inputFolderName) 
 	{
@@ -48,6 +57,7 @@ public class ParseInputFolder {
 		m_pages = new HashMap<String, Page>();
 		m_instances = new LinkedHashMap<String, Instance>();
 		m_cssContent = "";
+		m_ac = null;
 
 		initialisePatterns();
 	}
@@ -94,6 +104,25 @@ public class ParseInputFolder {
 		
 		m_parsePatterns.put(REGEX_INIT_VAR_END,
 				Pattern.compile("\\s*[}]\\s*;\\s*$"));
+		
+		m_parsePatterns.put(REGEX_VAR_SECRET,
+				Pattern.compile("^([^\"]*)\"([^\"]*)\".*"));
+		
+		m_parsePatterns.put(REGEX_AC_PRINCIPAL, 
+				Pattern.compile("^\\s*principal\\s*is\\s*(\\w*)\\s*with\\s*credentials\\s*(.*)$"));
+
+		m_parsePatterns.put(REGEX_AC_ACCESS,
+				Pattern.compile("^(\\s*)access\\s*control\\s*rules\\s*$"));
+		
+		m_parsePatterns.put(REGEX_AC_RULE,
+				Pattern.compile("^\\s*rule\\s(pointcut|page)\\s*(\\w*)\\s*\\(\\s*\\)\\s*[{]\\s*(\\w*)\\s*.*[}]\\s*$"));
+		
+		m_parsePatterns.put(REGEX_AC_POINTCUT, 
+				Pattern.compile("^\\s*pointcut\\s*(\\w*)\\s*\\(\\s*\\)\\s*[{]\\s*$"));
+
+		m_parsePatterns.put(REGEX_AC_PAGES,
+				Pattern.compile("^\\s*page\\s*(\\S*)\\(\\s*(\\S*)\\s*\\)\\s*,?\\s*$"));
+	
 	}
 
 	/*
@@ -237,6 +266,93 @@ public class ParseInputFolder {
 	}
 
 	/*
+	 * parseAccessControl
+	 * input: none
+	 * output: none
+	 * Description: parse access control file
+	 */
+	void parseAccessControl() {
+		
+		System.out.print("Parsing access control...");
+		
+		try {
+			BufferedReader br = new BufferedReader(new FileReader(m_inputFolder + "/" + AC_FILE));
+			String line = br.readLine();
+
+			boolean pointcutFlag = false;
+			boolean ruleFlag = false;
+			String currentPointcut = "";
+			Matcher matcher = null;
+			
+			while (line != null) {		
+				
+				if (ruleFlag) {
+					if (pointcutFlag) {
+						matcher = m_parsePatterns.get(REGEX_AC_PAGES).matcher(line);
+						if (matcher.find()) {							
+							m_ac.addPointcutPage(currentPointcut, matcher.group(1));
+							System.out.println("Tengo una pagina " + matcher.group(1) + " en un pointcut " + currentPointcut);
+						}else {
+							
+							matcher = m_parsePatterns.get(REGEX_AC_END_POINTCUT).matcher(line);
+							if (matcher.find()) {
+								pointcutFlag = false;
+								System.out.println("Find de pointcut: " + currentPointcut);
+							}
+						}
+					}
+					else {
+						matcher = m_parsePatterns.get(REGEX_AC_RULE).matcher(line);
+						if (matcher.find()) {
+							if (matcher.group(1).equals("page")) {
+								m_ac.addPageRule(matcher.group(2), matcher.group(3));
+								System.out.println("tengo una rule page: " + matcher.group(2));
+							}
+							else {
+								System.out.println("tengo un pointcut rule: " + matcher.group(2));
+								m_ac.addPointcutRule(matcher.group(2), matcher.group(3));
+							}	
+						}	
+						
+						matcher = m_parsePatterns.get(REGEX_AC_POINTCUT).matcher(line);
+						if (matcher.find()) {
+							currentPointcut = matcher.group(1);
+							System.out.println("Estoy dentro del pointcut: " + currentPointcut);
+							pointcutFlag = true;
+						}
+						
+					}
+				}else {  //Not inside rules yet
+					if (m_ac == null) {
+						matcher = m_parsePatterns.get(REGEX_AC_PRINCIPAL).matcher(line);
+						if (matcher.find()) {
+							m_ac = new AccessControl(matcher.group(1), matcher.group(2), m_appName);
+						}
+					}
+		
+					if (m_ac != null) {
+						matcher = m_parsePatterns.get(REGEX_AC_ACCESS).matcher(line);
+						if (matcher.find()) {
+							ruleFlag = true;
+							
+						}
+					}
+				}
+
+				line = br.readLine();	
+			}
+			br.close();
+		}catch(IOException e) {
+			e.printStackTrace();
+		}
+		
+		m_ac.processPointcuts(m_pages.keySet());
+		
+		System.out.println("\t\tDONE");
+	}
+
+	
+	/*
 	 * processInverse
 	 * input: none
 	 * output: none
@@ -325,7 +441,12 @@ public class ParseInputFolder {
 
 		if(matcher.find()) {
 			String crudPage = matcher.group(1);
-			m_entidades.get(crudPage).setCrud(true);		
+			m_entidades.get(crudPage).setCrud(true);
+			
+			m_pages.put(crudPage.toLowerCase(), null);
+			m_pages.put("create" + crudPage, null);
+			m_pages.put("edit" + crudPage, null);
+			m_pages.put("manage" + crudPage, null);
 		}
 
 	}
@@ -449,6 +570,7 @@ public class ParseInputFolder {
 	public boolean parseVar(String line) {
 		Matcher matcher = m_parsePatterns.get(REGEX_INIT_VAR_BEGIN).matcher(line);
 		if(matcher.find()) {
+			
 			Instance i = new Instance(matcher.group(1), m_entidades.get(matcher.group(2)));
 			m_currentInstance = i;
 			return true;
@@ -467,7 +589,15 @@ public class ParseInputFolder {
 		Matcher matcher = m_parsePatterns.get(REGEX_INIT_ASSIGN).matcher(line);
 		if(matcher.find()) {
 			Property p = m_currentInstance.getEntity().getProperties().get(matcher.group(1));
-			m_currentInstance.addValue(p, matcher.group(2));	
+			Matcher matcherSecret = m_parsePatterns.get(REGEX_VAR_SECRET).matcher(matcher.group(2));
+			
+			if (p.getType().equals("Secret") && matcherSecret.find()) {
+				if (matcherSecret.group(2)!=null) {
+					m_currentInstance.addValue(p, matcherSecret.group(2));
+				}
+			}else {
+				m_currentInstance.addValue(p, matcher.group(2));	
+			}
 		}
 	}
 	

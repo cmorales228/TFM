@@ -31,6 +31,7 @@ public class GAC_TFM {
 		m_input.parseInitializationFile(); //parse instances 
 		m_input.parsePageFile(); //parse the root page
 		m_input.parseCssFile(); // parse the css file
+		m_input.parseAccessControl(); //parse access control
 		m_input.processInverse();  //process the inverse properties
 		//m_input.print();
 		
