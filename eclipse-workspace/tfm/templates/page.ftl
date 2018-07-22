@@ -3,9 +3,9 @@
     <meta charset="UTF-8">
     <title></title>
     <head>
-    ${database}
+       <script src="./js/index.js" type="module"></script>
     </head>
-	<body id="${pageId}" onload="startDB();"><h3>
+	<body id="${pageId}"><h3>
 		${body}
 	</h3>
 	</body>
