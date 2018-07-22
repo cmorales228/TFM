@@ -30,9 +30,9 @@ public class GAC_TFM {
 		m_input.parseDataFile();  //parse entity data
 		m_input.parseInitializationFile(); //parse instances 
 		m_input.parsePageFile(); //parse the root page
-		m_input.parseCssFile(); // parse the css file
-		m_input.parseAccessControl(); //parse access control
 		m_input.processInverse();  //process the inverse properties
+		m_input.parseAccessControl(); //parse access control
+		m_input.parseCssFile(); // parse the css file
 		//m_input.print();
 		
 	}
@@ -45,6 +45,8 @@ public class GAC_TFM {
 		m_output.generateOutputConfig(); //generate configuration for Apache Cordova
 		m_output.generateRootFile(); //generate root file
 		m_output.generatePages(); //generate root and CRUD pages
+		m_output.generateAC(); //generate access control
+		m_output.generateJavaScript(); //generateIndexedDB
 		m_output.generateCssFile(); //generate CSS file
 	}
 }

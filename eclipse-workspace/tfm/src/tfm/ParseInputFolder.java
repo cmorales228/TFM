@@ -37,6 +37,7 @@ public class ParseInputFolder {
 	private final Integer REGEX_AC_POINTCUT         = 17;
 	private final Integer REGEX_AC_PAGES            = 18;
 	private final Integer REGEX_AC_END_POINTCUT     = REGEX_END_PAGE;
+	private final Integer REGEX_AUTHENTICATION      = 19;
 
 	private HashMap<Integer, Pattern> m_parsePatterns;
 	private Entity m_currentEntity;
@@ -122,6 +123,9 @@ public class ParseInputFolder {
 
 		m_parsePatterns.put(REGEX_AC_PAGES,
 				Pattern.compile("^\\s*page\\s*(\\S*)\\(\\s*(\\S*)\\s*\\)\\s*,?\\s*$"));
+		
+		m_parsePatterns.put(REGEX_AUTHENTICATION, 
+				Pattern.compile("^\\s*authentication\\s*\\(\\s*\\)\\s*$"));
 	
 	}
 
@@ -343,7 +347,7 @@ public class ParseInputFolder {
 		
 		m_ac.processPointcuts(m_pages.keySet());
 		
-		System.out.println("\t\tDONE");
+		System.out.println("\t\t\tDONE");
 	}
 
 	
@@ -520,6 +524,14 @@ public class ParseInputFolder {
 			}
 
 			m_currentPage.addElement(o);
+		}
+		
+		//Parse authentication 
+		matcher = m_parsePatterns.get(REGEX_AUTHENTICATION).matcher(line);
+		if(matcher.find()) {
+			Template t = new Template("Authentication");
+			
+			m_currentPage.addElement(t);
 		}
 	}
 
@@ -701,6 +713,10 @@ public class ParseInputFolder {
 	
 	public String getCss() {
 		return this.m_cssContent;
+	}
+	
+	public AccessControl getAC() {
+		return this.m_ac;
 	}
 	
 	public void print() {

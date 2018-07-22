@@ -7,6 +7,7 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.io.Writer;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.Map;
 
@@ -21,12 +22,20 @@ public class GenerateOutput {
 	private String m_outputFolder;
 	private ParseInputFolder m_inputData;
 	private String m_appName;
+	private String m_authentication;
+	private LinkedHashMap<String, String> m_eventListener;
+	private LinkedHashMap<String, String> m_jsFunctions;
+	private LinkedHashMap<String, String> m_jsEVFunctions;
 	
 	public GenerateOutput(String outputFolder, ParseInputFolder inputData) {
 		
 		m_outputFolder = outputFolder;
 		m_inputData = inputData;
 		m_appName = inputData.getAppName();
+		m_eventListener = new LinkedHashMap<>();
+		m_authentication = null;
+		m_jsFunctions= new LinkedHashMap<>();
+		m_jsEVFunctions= new LinkedHashMap<>();
 		
 		try {
 			
@@ -72,7 +81,6 @@ public class GenerateOutput {
 	
 		map.put("pageId", "root");
 		map.put("body", generateBodyPage(rootPage));
-		map.put("database", generateIndexedDB());
 		map.put("appName", m_appName);
 		
 		processTemplateToFile("page.ftl", map, m_outputFolder + "/www/" + m_appName + ".html");
@@ -95,22 +103,155 @@ public class GenerateOutput {
 			if (ent.getCrud()) {
 				
 				//Map <String, Object> map = new HashMap<>();
-				Map <String, Object> map = generateMap(ent);
+				Map <String, Object> map = generateEntityMap(ent);
 				
-				//GenerateView
+				//Generate View
+				m_jsFunctions.put("showTable"+ent.getName(), processTemplateToString("jsShowTable.ftl", map));
 				processTemplateToFile("viewEntity.ftl", map, m_outputFolder + "/www/" + ent.getName().toLowerCase() + ".html");	
 			
 				//Generate Create
+				m_jsFunctions.put("showForm"+ent.getName(), processTemplateToString("jsShowForm.ftl", map));
+				m_eventListener.put("save"+ent.getName(), "create"+ent.getName());
+				m_jsEVFunctions.put("create"+ent.getName(), processTemplateToString("jsCreateEntity.ftl", map));
 				processTemplateToFile("createEntity.ftl", map, m_outputFolder + "/www/create" + ent.getName() + ".html");
 				
 				//GenerateEdit
+				m_eventListener.put("update"+ent.getName(), "update"+ent.getName());
+				m_jsEVFunctions.put("update"+ent.getName(), processTemplateToString("jsEditEntity.ftl", map));
 				processTemplateToFile("editEntity.ftl", map, m_outputFolder + "/www/edit" + ent.getName() + ".html");
 			
 				//GenerateManage
+				m_jsFunctions.put("showManage"+ent.getName(), processTemplateToString("jsShowManage.ftl", map));
 				processTemplateToFile("manageEntity.ftl", map, m_outputFolder + "/www/manage" + ent.getName() + ".html");
 			}
 		}
 		System.out.println("\t\t\tDONE");
+	}
+	
+	/*
+	 * generateJavaScript
+	 * input: none
+	 * output: none
+	 * Description: generates almost all javascript functions needed. 
+	 *              It is separated in two files: index.js and functions.js 
+	 */
+	public void generateJavaScript() {
+		
+		System.out.print("Generating JavaScript files...");
+		
+		HashMap <String, Object> map = new HashMap<>();
+		
+		map.put("appName", m_appName);
+		map.put("eventListener", m_eventListener);
+		map.put("evFunctions", m_jsEVFunctions);
+		map.put("functions", m_jsFunctions.keySet());
+		map.put("authentication", m_authentication);
+		
+		//Set allLinkedEntities for crud entities.
+		HashMap<String, LinkedList<String>> allLinkedEntities = new HashMap<>();
+		for (Entity ent: m_inputData.getEntities().values()) {
+			if (ent.getCrud()) {
+				allLinkedEntities.put(ent.getName(), new LinkedList<>());
+				for (Property p: ent.getProperties().values()) {
+					if(m_inputData.getEntities().keySet().contains(p.getType())){
+						allLinkedEntities.get(ent.getName()).add(p.getType());
+					}
+				}
+			}
+		}
+		map.put("crudEntities", allLinkedEntities);	
+		
+		//Set editable linked entities.
+		HashMap<String, LinkedList<String>> editableLinkedEntities = new HashMap<>();
+		for (Entity ent: m_inputData.getEntities().values()) {
+			for(Property p: ent.getProperties().values()) {
+				if (p.getEditable() ==true && m_inputData.getEntities().keySet().contains(p.getType())) {
+					if (!editableLinkedEntities.containsKey(ent.getName())) {
+						editableLinkedEntities.put(ent.getName(), new LinkedList<>());
+					}
+					editableLinkedEntities.get(ent.getName()).add(p.getType());
+				}	
+			}
+		}	
+		map.put("editableLinkedEntities", editableLinkedEntities);
+		
+		//Generate stores for indexedDB and already defined instances
+		LinkedList<String> objects= new LinkedList<String>();
+		for(Entity ent: m_inputData.getEntities().values()) {	
+			objects.add(generateStores(ent));
+		}		
+		map.put("objects", objects);
+		
+		//Set access control rules
+		if (m_inputData.getAC()!=null) {
+			map.put("rules", m_inputData.getAC().getPageRules());
+		}
+		
+		generateJSfunctions();
+		processTemplateToFile("jsIndex.ftl", map, m_outputFolder + "/www/js/index.js");
+		
+		System.out.println("\t\t\tDONE");
+	}
+	
+	/*
+	 * generateJSfunctions
+	 * input: none
+	 * output: none
+	 * Description: generate functions for Javascript which does not depend on indexedDB
+	 */
+	private void generateJSfunctions() {
+	
+		HashMap <String, Object> map = new HashMap<>();
+		map.put("functions", m_jsFunctions);
+		
+		//Add function argument for JavaScript 
+		HashMap<String, LinkedList<String>> argFunctions = new HashMap<>(); 
+		LinkedList<String> argShowTable = new LinkedList<>();
+		argShowTable.add("value");
+		argShowTable.add("instancesValue");
+		LinkedList<String> argShowForm = new LinkedList<>();
+		argShowForm.add("values");
+		argShowForm.add("instancesMap");
+		argShowForm.add("defaultValue");
+		LinkedList<String> argShowManage = new LinkedList<>();
+		argShowManage.add("values");
+		
+		for (String entityName: m_inputData.getEntities().keySet()) {
+			argFunctions.put("showTable"+entityName, argShowTable);
+			argFunctions.put("showForm"+entityName, argShowForm);
+			argFunctions.put("showManage"+entityName, argShowManage);
+		}
+		
+		map.put("argFunctions", argFunctions);
+		processTemplateToFile("jsFunction.ftl", map, m_outputFolder + "/www/js/functions.js");
+	}
+	
+	/*
+	 * 
+	 */
+	private String generateStores(Entity ent) {
+		
+		LinkedList<String> data = new LinkedList<String>();
+		Map<String, Object> map = new HashMap<>();
+		
+		for (String instName : ent.getInstances().keySet()) {
+			map.put("nameInstance", instName);
+			map.put("properties", ent.getInstances().get(instName).getValues());
+			
+			//Add secretProperties --> <PropertyName, IsSecret>
+			HashMap<String, Boolean> secretProperties = new HashMap<>();
+			for (Property p : ent.getProperties().values()) {
+				secretProperties.put(p.getName(), p.getType().equals("Secret"));
+			}
+			map.put("secretProperties", secretProperties);
+			
+			data.add(processTemplateToString("createData.ftl", map));
+		}
+		
+		map.put("entity", ent.getName());
+		map.put("data", data);
+		
+		return processTemplateToString("createStores.ftl", map);
 	}
 	
 	/*
@@ -137,12 +278,12 @@ public class GenerateOutput {
 	}
 	
 	/*
-	 * generateMap
+	 * generateEntityMap
 	 * input: ent (Entity) for which CRUD pages will be created
 	 * output: Map<String, String> which contains all data for the output CRUD templates
 	 * Description: add all needed data to map from input data 
 	 */
-	private Map<String, Object> generateMap(Entity ent) {
+	private Map<String, Object> generateEntityMap(Entity ent) {
 		
 		Map<String, Object> map = new HashMap<>();
 		map.put("entityName", ent.getName());
@@ -151,10 +292,10 @@ public class GenerateOutput {
 		//Add properties --> <PropertyName, IsList>
 		//Add secretProperties --> <PropertyName, IsSecret>
 		//Add inverseNonEditable --> <Inverse PropertyName, isEditable>
-		HashMap<String, Boolean> properties = new HashMap<>();
-		HashMap<String, Boolean> secretProperties = new HashMap<>();
-		HashMap<String, String> inverseEditable = new HashMap<>();
-		HashMap<String, String> inverseNonEditable = new HashMap<>();
+		LinkedHashMap<String, Boolean> properties = new LinkedHashMap<>();
+		LinkedHashMap<String, Boolean> secretProperties = new LinkedHashMap<>();
+		LinkedHashMap<String, String> inverseEditable = new LinkedHashMap<>();
+		LinkedHashMap<String, String> inverseNonEditable = new LinkedHashMap<>();
 		for (Property p : ent.getProperties().values()) {
 			
 			if(p.getEditable()) {
@@ -167,14 +308,14 @@ public class GenerateOutput {
 				inverseNonEditable.put(p.getEinverse(), p.getPinverse());
 			}
 		}
-		System.out.println("Editable for " + ent.getName()+ ": " + properties);
+		
 		map.put("properties", properties);
 		map.put("secretProperties", secretProperties);
 		map.put("inverseEditable", inverseEditable);
 		map.put("inverseNonEditable", inverseNonEditable);
 		
-		HashMap<String, String> linkEntitiesOrNull = new HashMap<>();
-		HashMap<String, String> linkEntities = new HashMap<>();
+		LinkedHashMap<String, String> linkEntitiesOrNull = new LinkedHashMap<>();
+		LinkedHashMap<String, String> linkEntities = new LinkedHashMap<>();
 		for (Property p : ent.getProperties().values()) {
 			linkEntities.put(p.getName(), p.getType());
 			if (m_inputData.getEntities().keySet().contains(p.getType())) {
@@ -189,8 +330,8 @@ public class GenerateOutput {
 		
 		//CRUD
 		//propToDelete
-		HashMap<String, Boolean> crudEntities = new HashMap<>();
-		HashMap<String, String> propToDelete = new HashMap<>();
+		LinkedHashMap<String, Boolean> crudEntities = new LinkedHashMap<>();
+		LinkedHashMap<String, String> propToDelete = new LinkedHashMap<>();
 		for (Entity e : m_inputData.getEntities().values())
 		{
 			crudEntities.put(e.getName(), e.getCrud());
@@ -204,8 +345,34 @@ public class GenerateOutput {
 		map.put("propToDelete", propToDelete);
 		
 		map.put("tableCreate", generateCreateTable(ent));
-			
+		
 		return map;
+	}
+	
+	/*
+	 * generateAC
+	 */
+	public void generateAC() {
+
+		Map <String, Object> map = new HashMap<>();
+		map.put("appName", m_appName);
+		LinkedHashMap<String, Boolean> credentials = new LinkedHashMap<>();
+		String principal = m_inputData.getAC().getPrincipal();
+
+		for (String cred : m_inputData.getAC().getCredentials()) {
+			credentials.put(cred, m_inputData.getEntities().get(principal).getProperties().get(cred).getType().equals("Secret"));
+		}
+
+		map.put("credentials", credentials);
+		m_authentication = processTemplateToString("jsAuthentication.ftl", map);
+		map.put("principal", m_inputData.getAC().getPrincipal());
+		
+		m_jsEVFunctions.put("login", processTemplateToString("jsELlogin.ftl", map));
+		m_eventListener.put("loginButton", "login");
+		m_jsEVFunctions.put("logout", processTemplateToString("jsELlogout.ftl", map));
+		m_eventListener.put("logoutButton", "logout");
+		
+		processTemplateToFile("accessDenied.ftl", map,  m_outputFolder + "/www/accessDenied.html");
 	}
 	
 	/*
@@ -236,6 +403,9 @@ public class GenerateOutput {
 				case FORM:
 					template = "navigate.ftl";
 					break;
+				case TEMPLATE:
+					template = "authentication.ftl";
+					break;
 				default:
 					template = "navigate.ftl";
 					break;
@@ -246,48 +416,6 @@ public class GenerateOutput {
 		}
 
 		return body;
-	}
-	
-	/*
-	 * generateIndexedDB
-	 * input: none
-	 * output: String which contains the creation, initialization and instance inclusion of indexedDB
-	 * Description: use input data to create indexed DB, initialize it and include already created instances 
-	 */
-	public String generateIndexedDB() {
-		
-		Map <String, Object> map = new HashMap<>();	
-		
-		LinkedList<String> objects= new LinkedList<String>();
-			
-		for(Entity ent: m_inputData.getEntities().values()) {
-		
-			LinkedList<String> data = new LinkedList<String>();
-			
-			for (String instName : ent.getInstances().keySet()) {
-				map.put("nameInstance", instName);
-				map.put("properties", ent.getInstances().get(instName).getValues());
-				
-				//Add secretProperties --> <PropertyName, IsSecret>
-				HashMap<String, Boolean> secretProperties = new HashMap<>();
-				for (Property p : ent.getProperties().values()) {
-					secretProperties.put(p.getName(), p.getType().equals("Secret"));
-				}
-				map.put("secretProperties", secretProperties);
-				
-				data.add(processTemplateToString("createData.ftl", map));
-			}
-			
-			map.put("entity", ent.getName());
-			map.put("data", data);
-			
-			objects.add(processTemplateToString("createStores.ftl", map));
-		}
-		
-		map.put("objects", objects);
-		map.put("appName", m_appName);
-		
-		return processTemplateToString("jsIndexedDB.ftl", map);
 	}
 	
 	/*
