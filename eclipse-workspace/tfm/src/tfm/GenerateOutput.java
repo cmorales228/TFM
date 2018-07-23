@@ -122,6 +122,7 @@ public class GenerateOutput {
 			
 				//GenerateManage
 				m_jsFunctions.put("showManage"+ent.getName(), processTemplateToString("jsShowManage.ftl", map));
+				m_jsEVFunctions.put("deleteInstance"+ent.getName(), processTemplateToString("jsDeleteInstance.ftl", map));
 				processTemplateToFile("manageEntity.ftl", map, m_outputFolder + "/www/manage" + ent.getName() + ".html");
 			}
 		}
