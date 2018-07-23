@@ -123,6 +123,7 @@ window.onload = function(){
 	//function to delete an object from indexedDB
 	function deleteItemFromIndexedDB(storeName, item){
 		
+		console.log("voy a borrar " + item);
 		var store = getObjectStore (storeName, 'readwrite');
 		var request = store.delete(item);
 		
@@ -190,6 +191,7 @@ window.onload = function(){
 			
 			//Set a different event Listener for each 'remove' button.
 			for (var i = 0; i < values.length; i++){
+				console.log("add evento");
 				document.getElementById("deleteInstance"+values[i].instanceName).addEventListener("click", function(){
 					deleteInstance${entity}();	
 				});
