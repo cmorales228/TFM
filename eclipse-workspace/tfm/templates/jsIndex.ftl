@@ -11,7 +11,7 @@ var rules = {
 //Check the rule
 var pathName = window.location.pathname.substring(1, window.location.pathname.length-5);
 var rule = rules[pathName];
-if (rule == "false"){
+if (rule == null || rule == "false"){
 	window.location.href = window.location.protocol + '//' + window.location.host + "/accessDenied.html";
 }
 else if (rule == "loggedIn" && !("loginUser" in sessionStorage)){
